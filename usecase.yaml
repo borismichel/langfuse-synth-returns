@@ -1,0 +1,82 @@
+# usecase.yaml — schema version 1. The only portal integration surface.
+schema_version: 1
+slug: returns
+name: Returns Desk
+tagline: A vague returns skill runs up the bill. A checklist and a calculator bring it back.
+story: Kestrel & Co, a fictional retailer, shipped returns-and-refunds v1 as one long
+  note that tells the model to work refund amounts out itself. Four weeks of production
+  history show the skill loading on questions that are not returns, and a few wrong
+  amounts. v2 is a short checklist, one reference per edge case, and a calculator script.
+  Compare the two on the same 16 tickets, then move the production label.
+target:
+  project_hint: demo
+  supports:
+    - cloud_eu
+    - cloud_us
+base_config:
+  default: config/demo.yaml
+config_schema:
+  type: object
+  properties:
+    generation.seed:
+      type: integer
+      default: 42
+      minimum: 0
+      title: Generation seed
+      description: Deterministic RNG seed for the whole dataset. The same seed always
+        materializes the same Spool, but re-seeding a project that already holds it
+        appends a second copy (the v4 write path has no upsert).
+    generation.target_traces:
+      type: integer
+      minimum: 3
+      maximum: 100000
+      default: 84
+      title: Target traces
+      description: Total number of traces to generate. 84 is about three tickets a day
+        across the four weeks before the as-of date. The first traces keep their ids
+        when the count changes.
+  required: []
+pipeline:
+  - id: skills
+    run: synth skills-publish --config {config}
+    timeout_minutes: 20
+  - id: dataset
+    run: synth dataset-publish --config {config}
+    timeout_minutes: 20
+  - id: seed
+    run: synth seed --config {config}
+    timeout_minutes: 90
+  - id: verify
+    run: synth verify --config {config}
+    fatal: true
+artifacts:
+  - path: DEMO_SCRIPT.md
+    render: markdown
+    title: Presenter Runbook
+  - path: generation-report.json
+    render: json
+    title: Generation report
+assets:
+  docs:
+    - path: README.md
+      title: Overview
+llm:
+  providers:
+    - anthropic
+  models:
+    anthropic: claude-sonnet-5-5
+live_components:
+  - name: companion
+    description: Returns desk. Run one ticket against production or candidate, or both.
+    command: synth companion --config {config} --host 0.0.0.0 --port 8080
+    port: 8080
+    requires_secrets:
+      - LANGFUSE_PUBLIC_KEY
+      - LANGFUSE_SECRET_KEY
+      - LLM_API_KEY
+    routes:
+      - path: /
+        title: Returns Desk
+      - path: /chat
+        title: Ticket
+    health_path: /healthz

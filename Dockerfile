@@ -1,0 +1,34 @@
+# Reference Dockerfile for a Demo Depot synth kit (non-root uid/gid 10001).
+# Mirrors langfuse-synth-core/examples/kit.Dockerfile. langfuse-synth-core is a PUBLIC git
+# dependency pinned in pyproject.toml, so the install is a plain HTTPS pip install — no
+# build secret.
+#
+# Build:  docker build -t returns:dev .
+
+FROM python:3.12-slim
+
+# git: python:*-slim ships without it, but pip needs it to fetch the git-pinned lib.
+# The repo is public, so this is a plain HTTPS fetch — no build secret required.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends git \
+ && rm -rf /var/lib/apt/lists/*
+
+# Non-root user (uid/gid 10001) — job & live containers never run as root.
+RUN groupadd --gid 10001 synth \
+ && useradd --uid 10001 --gid synth --create-home --home-dir /home/synth synth
+
+WORKDIR /app
+COPY . .
+
+# Fetches the pinned public lib over HTTPS during the build; nothing to authenticate.
+RUN pip install --no-cache-dir .
+
+# COPY lands root-owned, but the container runs as uid 10001 (JOB_RUN_USER). Create and
+# chown the two runtime write paths — the spool and the artifact dir the portal collects
+# from (CONTRACT.md §"Filesystem conventions") — or `seed` dies on open_spool() at the
+# first deployment.
+RUN mkdir -p /app/out /app/.synth_spool && chown -R synth:synth /app
+
+USER synth
+# No default CMD: the portal supplies the command at container-create time
+# (CONTRACT.md §"The container invocation").

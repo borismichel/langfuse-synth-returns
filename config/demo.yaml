@@ -1,0 +1,15 @@
+# Base kit config. The portal writes `synth <verb> --config config/demo.yaml`
+# and scales volume with `--set generation.target_traces=N`.
+#
+# Seeded generation cost uses a Sonnet-class placeholder because claude-sonnet-5-5
+# has no published Langfuse price: USD 3 / million input tokens and USD 15 / million
+# output tokens. The figures are applied in synth.pricing so the Usage tab shows a
+# cost even when the model is unpriced. Re-pin nothing here; the card is local.
+target:
+  host: "http://localhost:3000"
+  project_hint: "demo"
+generation:
+  seed: 42
+  # About three tickets a day for the four weeks before the as-of date.
+  # The golden gate overrides this to 24.
+  target_traces: 84

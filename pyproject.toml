@@ -1,0 +1,46 @@
+[project]
+name = "returns"
+version = "0.1.0"
+description = "Returns Desk demo kit. v1 is a vague refund skill; v2 is a checklist plus a calculator."
+requires-python = ">=3.11"
+dependencies = [
+    # Pinned to the skills-support commit on langfuse-synth-core main (5.2.0, not tagged).
+    # Re-pin both this extra and the authoring extra to @v5.2.0 once that tag exists.
+    "langfuse-synth-core[companion] @ git+https://github.com/borismichel/langfuse-synth-core@539bb30109d9aa5a2fddbc8e32880654b7505077",
+    "langfuse>=5.1.0,<6",
+    "anthropic==1.11.0",
+    "PyYAML>=6,<7",
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8,<9",
+    "ruff>=0.6",
+    # Same commit as the runtime pin above. Bump both together.
+    "langfuse-synth-core[authoring] @ git+https://github.com/borismichel/langfuse-synth-core@539bb30109d9aa5a2fddbc8e32880654b7505077",
+]
+
+[project.scripts]
+synth = "synth.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+synth = ["history_assets/*.json"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "tests"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]

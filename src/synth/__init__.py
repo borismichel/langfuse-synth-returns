@@ -1,0 +1,1 @@
+"""Returns Desk synth kit."""
