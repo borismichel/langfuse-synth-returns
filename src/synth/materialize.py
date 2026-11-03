@@ -1,13 +1,13 @@
 """Four weeks of prewritten v1 returns-desk history. Model-free.
 
-Each ticket is one trace. The shape cycles through 16 archetypes so a shipping
-question, a wrong amount, a missing reference, and a calculator call are not
-the same tree. v2 is not in this history. Timestamps depend on the index and
-``run_date`` only, so the first N traces stay byte-stable when volume grows.
+Traces are turns in a session: one to four messages, one shared session id and
+user id, a few seconds to minutes apart. The shape of the decision turn cycles
+through 16 archetypes. v1 never calls ``run_refund_calculator`` (that tool is
+v2). Timestamps depend on the session, the turn, and ``run_date`` only, so the
+first N traces stay byte-stable when volume grows.
 """
 from __future__ import annotations
 
-import importlib.util
 import json
 from collections.abc import Mapping
 from datetime import datetime, timedelta
@@ -22,7 +22,7 @@ from langfuse_synth_core.seed.events import (
     score_event,
     trace_event,
 )
-from langfuse_synth_core.seed.otlp import trace_root_span_id
+from langfuse_synth_core.seed.otlp import string_attr, trace_root_span_id
 
 from .config import DERIVATION_HOOK
 from .paths import kit_root
@@ -33,6 +33,14 @@ SKILL_REFS = [{"name": SKILL_NAME, "version": 1}]
 MODEL = "claude-sonnet-5-5"
 NON_REFUND_SLOTS = frozenset({0, 5, 8, 9, 12})
 LOADED_NON_REFUND_SLOTS = frozenset({0, 8, 12})
+# Turns per session, then it repeats. The first five traces are: shipping
+# decision, shipping follow-up, t-shirt decision, t-shirt follow-up, sale
+# decision. Those three decision turns are the presenter beats inside a
+# five-score receipt.
+TURN_CYCLE = (2, 2, 3, 1, 4, 2, 3, 1)
+# Seconds after the session's first message. A clarification, then a follow-up.
+TURN_GAP_SECONDS = (0, 45, 180, 540)
+_OBS_META = "langfuse.observation.metadata."
 
 
 def representative_trace_id(seed: int) -> str:
@@ -66,24 +74,6 @@ def _skill_excerpt() -> str:
     text = path.read_text(encoding="utf-8")
     body = text.split("---", 2)[-1].strip()
     return body[:420].rstrip() + "\n… [SKILL.md continues; v1 is one file]"
-
-
-@lru_cache(maxsize=1)
-def _calc_refund():
-    path = (
-        kit_root()
-        / "skill_bundles"
-        / "returns-and-refunds"
-        / "v2"
-        / "scripts"
-        / "calc_refund.py"
-    )
-    spec = importlib.util.spec_from_file_location("kestrel_calc_refund", path)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"cannot load calculator at {path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module.calc_refund
 
 
 def _fill(text: str, order_id: str) -> str:
@@ -173,15 +163,14 @@ def _read_step(index: int, path: str, excerpt: str):
     )
 
 
-def _calc_step(index: int, payload: dict, result: dict):
+def _price_step(index: int, amount):
     return _step(
-        "calc",
-        "run_refund_calculator",
-        "tool",
-        _ms(36, index),
-        payload,
-        result,
-        skills=True,
+        "price",
+        "read-price-from-order",
+        "span",
+        _ms(55, index),
+        {"source": "order line"},
+        {"price": amount, "method": "copied the figure off the order"},
     )
 
 
@@ -198,7 +187,7 @@ def _draft(index: int, loaded: bool, decision_out: dict, kind: str = "draft"):
     )
 
 
-def _steps(ticket: dict, index: int, message: str, decision_out: dict, excerpt: str, calc):
+def _steps(ticket: dict, index: int, message: str, decision_out: dict, excerpt: str):
     loaded = bool(ticket["loaded"])
     shape = ticket["shape"]
     classify_out = {
@@ -276,8 +265,11 @@ def _steps(ticket: dict, index: int, message: str, decision_out: dict, excerpt: 
         steps.append(_read_step(index, ticket["reads"][0], excerpt))
         steps.append(_draft(index, True, decision_out))
     elif shape == "calc":
+        # v1 has no calculator. Shoes copy the price off the order; the book
+        # reply just states the figure. Both stay consistent with the scores.
         steps.append(_load_step(index, excerpt))
-        steps.append(_calc_step(index, calc["payload"], calc["result"]))
+        if ticket["key"] != "book-with-calc":
+            steps.append(_price_step(index, ticket["refund_amount"]))
         steps.append(_draft(index, True, decision_out))
     elif shape == "damaged":
         steps.append(_load_step(index, excerpt))
@@ -289,10 +281,15 @@ def _steps(ticket: dict, index: int, message: str, decision_out: dict, excerpt: 
                 "guardrail",
                 _ms(40, index),
                 {"photo": True},
-                {"photo": True, "within_7_days": True, "action": "approve"},
+                {
+                    "photo": True,
+                    "within_7_days": True,
+                    "action": "approve",
+                    "refund_amount": ticket["refund_amount"],
+                    "policy_rule": ticket["policy_rule"],
+                },
             )
         )
-        steps.append(_calc_step(index, calc["payload"], calc["result"]))
         steps.append(_draft(index, True, decision_out))
     elif shape == "gold":
         steps.append(_load_step(index, excerpt))
@@ -356,72 +353,267 @@ def _steps(ticket: dict, index: int, message: str, decision_out: dict, excerpt: 
         steps.append(_draft(index, True, decision_out))
     elif shape == "deny":
         steps.append(_load_step(index, excerpt))
-        steps.append(_calc_step(index, calc["payload"], calc["result"]))
+        steps.append(
+            _step(
+                "window",
+                "apply-window",
+                "generation",
+                _ms(520, index),
+                {"tier": ticket["tier"], "method": "count the days yourself"},
+                {"decision": "deny", "policy_rule": ticket["policy_rule"]},
+                skills=True,
+                usage=_tokens(index, True, "math"),
+            )
+        )
         steps.append(_draft(index, True, decision_out))
     else:
         raise ValueError(f"unknown history shape {shape}")
     return steps
 
 
-def _calc_bundle(ticket: dict, run_date: datetime, order_id: str) -> dict | None:
-    spec = ticket.get("calc")
-    if not spec:
-        return None
-    today = run_date.date()
-    delivery = today - timedelta(days=int(spec["days_ago"]))
-    item = {
-        "sku": spec["sku"],
-        "category": spec["category"],
-        "price": spec["price"],
-        "on_sale": bool(spec["on_sale"]),
-        "condition_reported": spec["condition"],
-        "shipping_fee": spec["shipping_fee"],
-        "return": True,
-        "delivery_date": delivery.isoformat(),
-        "photo": bool(spec["photo"]),
-        "downloaded": bool(spec["downloaded"]),
-    }
-    order = {
-        "order_id": order_id,
-        "order_date": (delivery - timedelta(days=2)).isoformat(),
-        "delivery_date": delivery.isoformat(),
-        "today": today.isoformat(),
-        "customer_tier": spec["tier"],
-        "items": [item],
-    }
-    payload = {
-        "order": order,
-        "items": [item],
-        "today": today.isoformat(),
-        "customer_tier": spec["tier"],
-    }
-    return {"payload": payload, "result": _calc_refund()(payload)}
+_REFUND_FOLLOWUPS = (
+    {
+        "customer_message": "What about postage on {order}?",
+        "reply": (
+            "I opened the returns note again for {order}. I am not adding postage "
+            "on top of the amount I already gave you."
+        ),
+        "shape": "reload",
+        "decision": "not_applicable",
+        "expected_decision": "not_applicable",
+        "refund_amount": None,
+        "expected_amount": None,
+        "loaded": True,
+        "should_load_skill": False,
+        "policy_faithful": 0.75,
+        "trace_name": "returns-other",
+    },
+    {
+        "customer_message": "Ok, how do I send it back?",
+        "reply": (
+            "Use the returns form in your Kestrel account for {order}, print the label, "
+            "and drop the parcel at any post office within fourteen days."
+        ),
+        "shape": "brief",
+        "decision": "not_applicable",
+        "expected_decision": "not_applicable",
+        "refund_amount": None,
+        "expected_amount": None,
+        "loaded": False,
+        "should_load_skill": False,
+        "policy_faithful": 1.0,
+        "trace_name": "returns-other",
+    },
+    {
+        "customer_message": "When does the refund land?",
+        "reply": (
+            "Once we scan the return for {order}, the refund goes back to the original "
+            "card in three to five business days."
+        ),
+        "shape": "brief",
+        "decision": "not_applicable",
+        "expected_decision": "not_applicable",
+        "refund_amount": None,
+        "expected_amount": None,
+        "loaded": False,
+        "should_load_skill": False,
+        "policy_faithful": 1.0,
+        "trace_name": "returns-other",
+    },
+)
+_OTHER_FOLLOWUPS = (
+    {
+        "customer_message": "Thanks. When should {order} scan again?",
+        "reply": (
+            "The next scan for {order} should show up by tomorrow morning. "
+            "I will not open a return for a parcel that is still moving."
+        ),
+        "shape": "brief",
+        "decision": "not_applicable",
+        "expected_decision": "not_applicable",
+        "refund_amount": None,
+        "expected_amount": None,
+        "loaded": False,
+        "should_load_skill": False,
+        "policy_faithful": 1.0,
+        "trace_name": "returns-other",
+    },
+    {
+        "customer_message": "Can you text me when it arrives?",
+        "reply": (
+            "Tracking texts for {order} come from the carrier, not from this desk. "
+            "The link in your shipping email is the one that updates."
+        ),
+        "shape": "brief",
+        "decision": "not_applicable",
+        "expected_decision": "not_applicable",
+        "refund_amount": None,
+        "expected_amount": None,
+        "loaded": False,
+        "should_load_skill": False,
+        "policy_faithful": 1.0,
+        "trace_name": "returns-other",
+    },
+    {
+        "customer_message": "It still has not moved. Should I just return it?",
+        "reply": (
+            "I checked the returns note while looking at {order}. It is still in transit, "
+            "so there is nothing to refund yet. Give it one more business day."
+        ),
+        "shape": "reload",
+        "decision": "not_applicable",
+        "expected_decision": "not_applicable",
+        "refund_amount": None,
+        "expected_amount": None,
+        "loaded": True,
+        "should_load_skill": False,
+        "policy_faithful": 0.75,
+        "trace_name": "returns-other",
+    },
+)
 
 
-def _emit_trace(ticket: dict, index: int, seed: int, run_date: datetime) -> tuple[list, dict, list]:
-    order_id = f"KC-{index:04d}"
-    message = _fill(ticket["customer_message"], order_id)
-    reply = _fill(ticket["reply"], order_id)
-    decision_out = {
-        "decision": ticket["decision"],
-        "refund_amount": ticket["refund_amount"],
-        "reply": reply,
+def iter_turns(count: int):
+    """Yield ``(trace_index, session, turn, turns, archetype)`` for ``count`` traces.
+
+    The plan is a prefix of the same schedule at every volume, so trace ids do
+    not move when ``target_traces`` grows.
+    """
+    produced = 0
+    session = 0
+    while produced < count:
+        turns = TURN_CYCLE[session % len(TURN_CYCLE)]
+        archetype = session % 16
+        for turn in range(turns):
+            if produced >= count:
+                return
+            yield produced, session, turn, turns, archetype
+            produced += 1
+        session += 1
+
+
+def _followup(ticket: dict, turn: int, archetype: int) -> dict:
+    bank = _REFUND_FOLLOWUPS if ticket["case_type"] == "refund" else _OTHER_FOLLOWUPS
+    return bank[(turn - 1 + archetype) % len(bank)]
+
+
+def _follow_steps(spec: dict, index: int, message: str, decision_out: dict, excerpt: str):
+    classify_out = {"case_type": "follow_up", "route": "returns" if spec["loaded"] else "general"}
+    steps = [
+        _step(
+            "classify",
+            "classify-intent",
+            "span",
+            _ms(120, index),
+            {"message": message},
+            classify_out,
+        )
+    ]
+    if spec["shape"] == "reload":
+        steps.append(
+            _step(
+                "route",
+                "route-returns",
+                "span",
+                _ms(60, index),
+                {"route": "returns"},
+                {"chosen": SKILL_NAME, "reason": "follow-up on an order"},
+            )
+        )
+        steps.append(_load_step(index, excerpt))
+        steps.append(_draft(index, True, decision_out))
+    else:
+        steps.append(
+            _step(
+                "route",
+                "route-general",
+                "span",
+                _ms(50, index),
+                {"route": "general"},
+                {"chosen": "general-desk"},
+            )
+        )
+        steps.append(_draft(index, False, decision_out))
+    return steps
+
+
+def _step_metadata(name: str) -> dict:
+    """Observation metadata for one child. Trace fields stay on the root."""
+    if name == "loadSkill":
+        return {"tool": "loadSkill"}
+    if name == "skill_read":
+        return {"tool": "skill_read"}
+    if name == "classify-intent":
+        return {"step": "classify"}
+    if name == "photo-check":
+        return {"step": "photo"}
+    generations = {
+        "draft-customer-reply",
+        "estimate-refund",
+        "apply-window",
+        "estimate-remaining-months",
     }
-    rng = Rng(seed).sub("returns", index)
+    if name in generations:
+        return {"step": "generation"}
+    return {"step": name}
+
+
+def _stamp_root_notes(span: dict, notes: dict) -> None:
+    """Observation metadata that finalisation does not copy onto children."""
+    span["attributes"].extend(
+        string_attr(_OBS_META + key, value) for key, value in notes.items()
+    )
+
+
+def _emit_turn(
+    ticket: dict,
+    *,
+    trace_index: int,
+    session: int,
+    turn: int,
+    turns: int,
+    seed: int,
+    run_date: datetime,
+    follow: dict | None,
+) -> tuple[list, dict, list]:
+    order_id = f"KC-{session:04d}"
+    if follow is None:
+        message = _fill(ticket["customer_message"], order_id)
+        reply = _fill(ticket["reply"], order_id)
+        decision = ticket["decision"]
+        expected_decision = ticket["expected_decision"]
+        refund_amount = ticket["refund_amount"]
+        expected_amount = ticket["expected_amount"]
+        loaded_ok = _skill_load_ok(ticket)
+        policy = ticket["policy_faithful"]
+        trace_name = ticket["trace_name"]
+        decision_out = {"decision": decision, "refund_amount": refund_amount, "reply": reply}
+        steps = _steps(ticket, trace_index, message, decision_out, _skill_excerpt())
+    else:
+        message = _fill(follow["customer_message"], order_id)
+        reply = _fill(follow["reply"], order_id)
+        decision = follow["decision"]
+        expected_decision = follow["expected_decision"]
+        refund_amount = follow["refund_amount"]
+        expected_amount = follow["expected_amount"]
+        loaded_ok = bool(follow["loaded"]) == bool(follow["should_load_skill"])
+        policy = follow["policy_faithful"]
+        trace_name = follow["trace_name"]
+        decision_out = {"decision": decision, "refund_amount": refund_amount, "reply": reply}
+        steps = _follow_steps(follow, trace_index, message, decision_out, _skill_excerpt())
+    rng = Rng(seed).sub("returns", trace_index)
     trace_id = rng.trace_id("ticket")
     root_id = trace_root_span_id(trace_id)
     agent_id = rng.obs_id("agent")
-    owner = index - 1 if index % 9 == 8 else index
-    session_id = f"kc-sess-{seed}-{owner:04d}"
-    user_id = f"kc-{index:04d}"
-    start = run_date - timedelta(
-        days=(index % 28),
-        hours=9 + (index % 8),
-        minutes=(index * 3) % 60,
-        seconds=index % 50,
+    session_id = f"kc-sess-{seed}-{session:04d}"
+    user_id = f"kc-{session:04d}"
+    session_start = run_date - timedelta(
+        days=(session % 28),
+        hours=9 + (session % 8),
+        minutes=(session * 3) % 60,
+        seconds=session % 50,
     )
-    calc = _calc_bundle(ticket, run_date, order_id) if ticket["did_calc"] else None
-    steps = _steps(ticket, index, message, decision_out, _skill_excerpt(), calc)
+    start = session_start + timedelta(seconds=TURN_GAP_SECONDS[turn])
     cursor = start + timedelta(milliseconds=30)
     ids = {"agent": agent_id}
     built = []
@@ -434,7 +626,7 @@ def _emit_trace(ticket: dict, index: int, seed: int, run_date: datetime) -> tupl
         cursor = end + timedelta(milliseconds=15)
         parent = agent_id if item["parent"] == "agent" else ids[item["parent"]]
         skills = SKILL_REFS if item["skills"] else None
-        meta = {"archetype": ticket["key"], "evidence": "prewritten"}
+        meta = _step_metadata(item["name"])
         if item["type"] == "generation":
             usage, cost = usage_and_cost(*item["usage"])
             built.append(
@@ -481,27 +673,33 @@ def _emit_trace(ticket: dict, index: int, seed: int, run_date: datetime) -> tupl
         if int(child_event["endTimeUnixNano"]) > int(parent_event["endTimeUnixNano"]):
             parent_event["endTimeUnixNano"] = child_event["endTimeUnixNano"]
     agent_end = cursor + timedelta(milliseconds=20)
-    metadata = {
-        "archetype": ticket["key"],
-        "beat": ticket["key"],
-        "channel": ticket["channel"],
-        "tier": ticket["tier"],
-        "skill": SKILL_NAME,
-        "skill_version": "1",
-        "evidence": "prewritten",
-    }
+    # Only the filterable key rides as trace metadata. Core copies that onto
+    # every span; the rest of the story stays on the root observation.
+    trace_meta = {"archetype": ticket["key"]}
+    root = trace_event(
+        trace_id=trace_id,
+        timestamp=start,
+        name=trace_name,
+        user_id=user_id,
+        session_id=session_id,
+        tags=["returns", "kestrel", "skill-v1", ticket["tier"], ticket["channel"]],
+        metadata=trace_meta,
+        input=message,
+        output=decision_out,
+    )
+    _stamp_root_notes(
+        root,
+        {
+            "turn": str(turn + 1),
+            "turns": str(turns),
+            "channel": ticket["channel"],
+            "tier": ticket["tier"],
+            "skill_version": "1",
+            "evidence": "prewritten",
+        },
+    )
     observations = [
-        trace_event(
-            trace_id=trace_id,
-            timestamp=start,
-            name=ticket["trace_name"],
-            user_id=user_id,
-            session_id=session_id,
-            tags=["returns", "kestrel", "skill-v1", ticket["tier"], ticket["channel"]],
-            metadata=metadata,
-            input=message,
-            output=decision_out,
-        ),
+        root,
         observation_event(
             obs_id=agent_id,
             trace_id=trace_id,
@@ -510,18 +708,18 @@ def _emit_trace(ticket: dict, index: int, seed: int, run_date: datetime) -> tupl
             start=start,
             end=agent_end,
             parent_id=root_id,
-            input={"message": message},
+            input={"message": message, "turn": turn + 1},
             output=decision_out,
-            metadata=metadata,
+            metadata={"role": "agent"},
         ),
         *built,
     ]
-    comment = f"{ticket['key']}: prewritten v1 label"
-    decision = score_event(
+    comment = f"{ticket['key']} turn {turn + 1}: prewritten v1 label"
+    decision_score = score_event(
         score_id=rng.score_id("decision_correct"),
         trace_id=trace_id,
         name="decision_correct",
-        value=1 if ticket["decision"] == ticket["expected_decision"] else 0,
+        value=1 if decision == expected_decision else 0,
         data_type="BOOLEAN",
         timestamp=start,
         comment=comment,
@@ -531,7 +729,7 @@ def _emit_trace(ticket: dict, index: int, seed: int, run_date: datetime) -> tupl
             score_id=rng.score_id("amount_correct"),
             trace_id=trace_id,
             name="amount_correct",
-            value=1 if _amounts_match(ticket["refund_amount"], ticket["expected_amount"]) else 0,
+            value=1 if _amounts_match(refund_amount, expected_amount) else 0,
             data_type="BOOLEAN",
             timestamp=start,
             comment=comment,
@@ -540,7 +738,7 @@ def _emit_trace(ticket: dict, index: int, seed: int, run_date: datetime) -> tupl
             score_id=rng.score_id("skill_load_correct"),
             trace_id=trace_id,
             name="skill_load_correct",
-            value=1 if _skill_load_ok(ticket) else 0,
+            value=1 if loaded_ok else 0,
             data_type="BOOLEAN",
             timestamp=start,
             comment=comment,
@@ -549,23 +747,22 @@ def _emit_trace(ticket: dict, index: int, seed: int, run_date: datetime) -> tupl
             score_id=rng.score_id("policy_faithful"),
             trace_id=trace_id,
             name="policy_faithful",
-            value=ticket["policy_faithful"],
+            value=policy,
             data_type="NUMERIC",
             timestamp=start,
             comment=comment,
         ),
     ]
-    return observations, decision, others
+    return observations, decision_score, others
 
 
 def build_events(
     target_traces: int, params: Mapping[str, Any], *, run_date: datetime,
 ) -> list[dict]:
-    """Return the Spool lines for ``target_traces`` tickets.
+    """Return the Spool lines for ``target_traces`` turns.
 
-    Counts below three cannot show the three presenter beats. Higher counts
-    repeat the 16-archetype cycle. The first trace's ids do not depend on the
-    total.
+    Counts below three cannot show the opening beats. Higher counts continue
+    the same session schedule. The first trace's ids do not depend on the total.
     """
     count = int(DERIVATION_HOOK(target_traces, params)["target_traces"])
     if count < 3:
@@ -575,8 +772,19 @@ def build_events(
     observations: list[dict] = []
     decisions: list[dict] = []
     others: list[dict] = []
-    for index in range(count):
-        obs, decision, rest = _emit_trace(tickets[index % 16], index, seed, run_date)
+    for trace_index, session, turn, turns, archetype in iter_turns(count):
+        ticket = tickets[archetype]
+        follow = None if turn == 0 else _followup(ticket, turn, archetype)
+        obs, decision, rest = _emit_turn(
+            ticket,
+            trace_index=trace_index,
+            session=session,
+            turn=turn,
+            turns=turns,
+            seed=seed,
+            run_date=run_date,
+            follow=follow,
+        )
         observations.extend(obs)
         decisions.append(decision)
         others.extend(rest)

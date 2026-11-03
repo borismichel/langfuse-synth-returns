@@ -23,6 +23,8 @@ def system_prompt(skill: FetchedSkill) -> str:
         "Call loadSkill when a skill's description matches the customer's request. "
         "Read further files with skill_read. Use run_refund_calculator when the skill "
         "tells you to compute an amount.\n\n"
+        "Earlier turns of this conversation, if any, are already in the messages. "
+        "Answer the latest customer message.\n\n"
         "Finish with one JSON object and no other text: "
         '{"decision":"approve_full|approve_partial|store_credit|deny|escalate|not_applicable",'
         '"refund_amount": number or null, "reply":"customer-facing text"}.'
@@ -101,17 +103,34 @@ def run_ticket(
     session_id: str = "kc-live-session",
     tags: list[str] | None = None,
     metadata: dict | None = None,
+    history: list[dict] | None = None,
 ) -> dict:
-    """Run one ticket. Tools are siblings under the agent, not children of a generation."""
+    """Run one turn. Tools are siblings under the agent, not children of a generation.
+
+    ``history`` is the prior turns of this chat, ``{"role", "content"}`` pairs.
+    They stay on this turn's agent input and on the model messages. The
+    ``session_id`` is the caller's, stable across turns.
+    """
     message = _ticket_text(ticket)
+    prior = [
+        {"role": turn["role"], "content": turn["content"]}
+        for turn in (history or [])
+        if turn.get("role") in {"user", "assistant"} and turn.get("content")
+    ]
     refs = skill.refs
     tier = str(ticket.get("customer_tier") or "standard")
     trace_tags = list(tags or ["returns", "kestrel", f"skill-v{skill.version}", tier, "live"])
     totals = {"input": 0, "output": 0}
     loaded = False
+    calculated = False
     files_read: list[str] = []
     final_text = ""
-    messages: list[dict] = [{"role": "user", "content": message}]
+    messages: list[dict] = [*prior, {"role": "user", "content": message}]
+    agent_input = {
+        "customer_message": ticket.get("customer_message"),
+        "order": ticket.get("order"),
+        "prior_turns": prior,
+    }
 
     with emitter.trace(
         "returns-ticket",
@@ -122,7 +141,7 @@ def run_ticket(
         metadata={"skill": skill.name, "skill_version": str(skill.version), **(metadata or {})},
         skills_available=refs,
     ) as trace:
-        with trace.observation("returns-desk", as_type="agent", input=ticket) as agent:
+        with trace.observation("returns-desk", as_type="agent", input=agent_input) as agent:
             with agent.span(
                 "classify-intent", input={"message": ticket.get("customer_message")}
             ) as classify:
@@ -168,6 +187,8 @@ def run_ticket(
                         tool.update(output=result)
                     if block.name == "loadSkill":
                         loaded = True
+                    if block.name == "run_refund_calculator":
+                        calculated = True
                     if block.name == "skill_read":
                         files_read.append(str(arguments.get("path") or ""))
                     content = result if isinstance(result, str) else json.dumps(result)
@@ -188,6 +209,7 @@ def run_ticket(
     return {
         **parsed,
         "loaded_skill": loaded,
+        "calculated": calculated,
         "files_read": files_read,
         "usage": {**_usage, "cost": cost["total"]},
     }

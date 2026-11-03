@@ -109,7 +109,7 @@ def calc_refund(payload: dict) -> dict:
         amount = (price * Decimal(months) / Decimal(12)).quantize(_CENT, rounding=ROUND_DOWN)
         return _result("approve_partial", amount, "R7-subscription-pro-rata")
 
-    if category in {"digital", "ebook"} or "downloaded" in item:
+    if category in {"digital", "ebook"} or bool(item.get("downloaded")):
         downloaded = bool(item.get("downloaded"))
         if days is not None and days <= 14 and not downloaded:
             return _result("approve_full", price, "R6-digital-download")

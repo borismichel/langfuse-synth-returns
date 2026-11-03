@@ -31,7 +31,9 @@ CONFIG = Path(__file__).resolve().parent.parent / "config" / "demo.yaml"
 # as-of → byte-identical Spool`, portal #229). It lives HERE, in the dev-only gate, and
 # nowhere in `src/`: production resolves the date from the operator (or the clock), and
 # the oracle pins it so the golden bytes are reproducible on any day.
-AS_OF_DATE = "2026-01-01"
+# The story's "today" (see the golden dataset). The frozen spool is the four weeks
+# before 20 Oct 2026, not a January window left over from an arbitrary pin.
+AS_OF_DATE = "2026-10-20"
 
 
 def seed(target_traces: int, params: Mapping[str, Any]) -> bytes:

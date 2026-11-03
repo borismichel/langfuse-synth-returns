@@ -67,7 +67,7 @@ llm:
     anthropic: claude-sonnet-5-5
 live_components:
   - name: companion
-    description: Returns desk. Run one ticket against production or candidate, or both.
+    description: Returns desk chat. One conversation is one session. Production or candidate picks the skill label.
     command: synth companion --config {config} --host 0.0.0.0 --port 8080
     port: 8080
     requires_secrets:
@@ -78,5 +78,5 @@ live_components:
       - path: /
         title: Returns Desk
       - path: /chat
-        title: Ticket
+        title: Chat
     health_path: /healthz
