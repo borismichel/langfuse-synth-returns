@@ -1,0 +1,105 @@
+"""Publish v1 (production) then v2 (candidate) without minting a duplicate version.
+
+``publish_skill_bundle`` only compares the latest version. A second publish of v1
+after v2 exists would create version 3 and move the production label. This wrapper
+matches file hashes on any existing version first.
+"""
+from __future__ import annotations
+
+import base64
+import hashlib
+from pathlib import Path
+
+from ..paths import kit_root
+
+SKILL_NAME = "returns-and-refunds"
+V1 = ("skill_bundles", "returns-and-refunds", "v1")
+V2 = ("skill_bundles", "returns-and-refunds", "v2")
+
+
+def _content_hash(content: str) -> str:
+    digest = hashlib.sha256(content.encode("utf-8")).digest()
+    return base64.b64encode(digest).decode("ascii")
+
+
+def _local_hashes(bundle: Path) -> dict[str, str]:
+    files: dict[str, str] = {}
+    for path in sorted(bundle.rglob("*")):
+        if path.is_file():
+            files[path.relative_to(bundle).as_posix()] = _content_hash(
+                path.read_text(encoding="utf-8")
+            )
+    return files
+
+
+def _remote_hashes(version) -> dict[str, str]:
+    found: dict[str, str] = {}
+    for record in getattr(version, "files", None) or []:
+        digest = getattr(record, "sha256hash", None)
+        if digest is None:
+            digest = getattr(record, "sha256Hash", None)
+        found[str(getattr(record, "path", ""))] = "" if digest is None else str(digest)
+    return found
+
+
+def _missing(exc: Exception) -> bool:
+    return getattr(exc, "status_code", None) == 404
+
+
+def _managed(version) -> set[str]:
+    return {str(label) for label in (getattr(version, "labels", None) or []) if label != "latest"}
+
+
+def publish_bundle(client, bundle: Path, labels: list[str]) -> dict:
+    from langfuse_synth_core.skills import publish_skill_bundle
+
+    local = _local_hashes(bundle)
+    skills = client.api.skills
+    match = None
+    for number in range(1, 21):
+        try:
+            remote = skills.get(SKILL_NAME, version=number)
+        except Exception as exc:
+            if _missing(exc):
+                break
+            raise
+        if _remote_hashes(remote) == local:
+            match = remote
+            break
+    if match is not None:
+        if _managed(match) != set(labels):
+            match = skills.set_labels(SKILL_NAME, int(match.version), labels=list(labels))
+        return {"name": SKILL_NAME, "version": int(match.version), "created": False}
+    created = publish_skill_bundle(client, bundle, labels)
+    return {"name": created["name"], "version": int(created["version"]), "created": True}
+
+
+def publish_returns_skills(client, *, root: Path | None = None) -> dict:
+    """v1 first so a fresh project gets version 1, then v2 as version 2."""
+    root = root or kit_root()
+    production = publish_bundle(client, root.joinpath(*V1), ["production"])
+    candidate = publish_bundle(client, root.joinpath(*V2), ["candidate"])
+    if production["version"] != 1 or candidate["version"] != 2:
+        raise RuntimeError(
+            "expected returns-and-refunds version 1 (production) and version 2 (candidate), "
+            f"got {production['version']} and {candidate['version']}. Use a fresh project."
+        )
+    return {"production": production, "candidate": candidate}
+
+
+def langfuse_client(base_url: str):
+    import os
+
+    from langfuse import Langfuse
+    from langfuse_synth_core.ingestion import INGESTION_VERSION, INGESTION_VERSION_HEADER
+
+    public_key = os.environ.get("LANGFUSE_PUBLIC_KEY")
+    secret_key = os.environ.get("LANGFUSE_SECRET_KEY")
+    if not public_key or not secret_key:
+        raise RuntimeError("LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY are required")
+    return Langfuse(
+        host=base_url,
+        public_key=public_key,
+        secret_key=secret_key,
+        additional_headers={INGESTION_VERSION_HEADER: INGESTION_VERSION},
+    )

@@ -1,0 +1,610 @@
+{
+  "name": "returns-agent-golden-set",
+  "description": "Sixteen fictional Kestrel & Co tickets. Today is 2026-10-20. The content_hash covers items only.",
+  "content_hash": "7cec9edae8a14a2cc6c7fb7334da1c2d6fadd4676f5ff0c2ca5d06f0c5f8b3fe",
+  "dataset_version": null,
+  "items": [
+    {
+      "id": "rr-001",
+      "input": {
+        "customer_message": "Hi, I would like to return the navy t-shirt from my order. It is unused and still in the bag. Please refund me.",
+        "order": {
+          "order_id": "KC-1001",
+          "order_date": "2026-10-08",
+          "delivery_date": "2026-10-10",
+          "today": "2026-10-20",
+          "customer_tier": "standard",
+          "items": [
+            {
+              "sku": "TEE-NAVY",
+              "category": "apparel",
+              "price": 29.99,
+              "on_sale": false,
+              "condition_reported": "unused",
+              "shipping_fee": 0,
+              "return": true,
+              "delivery_date": "2026-10-10"
+            }
+          ]
+        },
+        "customer_tier": "standard"
+      },
+      "expected": {
+        "decision": "approve_full",
+        "refund_amount": 29.99,
+        "policy_rule": "R1-30-day-window",
+        "must_mention": [
+          "30 days",
+          "29.99"
+        ]
+      },
+      "metadata": {
+        "case_type": "window",
+        "should_load_skill": true,
+        "needs_reference": null
+      }
+    },
+    {
+      "id": "rr-002",
+      "input": {
+        "customer_message": "The trail shoes do not fit. They are unworn and still in the original box. Can I send them back for a refund?",
+        "order": {
+          "order_id": "KC-1002",
+          "order_date": "2026-09-28",
+          "delivery_date": "2026-10-01",
+          "today": "2026-10-20",
+          "customer_tier": "standard",
+          "items": [
+            {
+              "sku": "SHOE-TRAIL",
+              "category": "apparel",
+              "price": 89.0,
+              "on_sale": false,
+              "condition_reported": "unused",
+              "shipping_fee": 0,
+              "return": true,
+              "delivery_date": "2026-10-01"
+            }
+          ]
+        },
+        "customer_tier": "standard"
+      },
+      "expected": {
+        "decision": "approve_full",
+        "refund_amount": 89.0,
+        "policy_rule": "R1-30-day-window",
+        "must_mention": [
+          "30 days",
+          "89.00"
+        ]
+      },
+      "metadata": {
+        "case_type": "window",
+        "should_load_skill": true,
+        "needs_reference": null
+      }
+    },
+    {
+      "id": "rr-003",
+      "input": {
+        "customer_message": "Please refund the kettle from last week's delivery. I have not used it and the seal is intact.",
+        "order": {
+          "order_id": "KC-1003",
+          "order_date": "2026-10-09",
+          "delivery_date": "2026-10-12",
+          "today": "2026-10-20",
+          "customer_tier": "standard",
+          "items": [
+            {
+              "sku": "KETTLE-ENAMEL",
+              "category": "home",
+              "price": 45.5,
+              "on_sale": false,
+              "condition_reported": "unused",
+              "shipping_fee": 0,
+              "return": true,
+              "delivery_date": "2026-10-12"
+            }
+          ]
+        },
+        "customer_tier": "standard"
+      },
+      "expected": {
+        "decision": "approve_full",
+        "refund_amount": 45.5,
+        "policy_rule": "R1-30-day-window",
+        "must_mention": [
+          "30 days",
+          "45.50"
+        ]
+      },
+      "metadata": {
+        "case_type": "window",
+        "should_load_skill": true,
+        "needs_reference": null
+      }
+    },
+    {
+      "id": "rr-004",
+      "input": {
+        "customer_message": "I want to return the paperback I bought. It is unread and the pages are still crisp.",
+        "order": {
+          "order_id": "KC-1004",
+          "order_date": "2026-10-02",
+          "delivery_date": "2026-10-06",
+          "today": "2026-10-20",
+          "customer_tier": "standard",
+          "items": [
+            {
+              "sku": "BOOK-PAPER",
+              "category": "books",
+              "price": 18.4,
+              "on_sale": false,
+              "condition_reported": "unused",
+              "shipping_fee": 0,
+              "return": true,
+              "delivery_date": "2026-10-06"
+            }
+          ]
+        },
+        "customer_tier": "standard"
+      },
+      "expected": {
+        "decision": "approve_full",
+        "refund_amount": 18.4,
+        "policy_rule": "R1-30-day-window",
+        "must_mention": [
+          "30 days",
+          "18.40"
+        ]
+      },
+      "metadata": {
+        "case_type": "window",
+        "should_load_skill": true,
+        "needs_reference": null
+      }
+    },
+    {
+      "id": "rr-005",
+      "input": {
+        "customer_message": "I only want to return the desk lamp from this order, not the bulb. The lamp is unused.",
+        "order": {
+          "order_id": "KC-1005",
+          "order_date": "2026-10-12",
+          "delivery_date": "2026-10-15",
+          "today": "2026-10-20",
+          "customer_tier": "standard",
+          "items": [
+            {
+              "sku": "LAMP-DESK",
+              "category": "home",
+              "price": 60.0,
+              "on_sale": false,
+              "condition_reported": "unused",
+              "shipping_fee": 0,
+              "return": true,
+              "delivery_date": "2026-10-15"
+            },
+            {
+              "sku": "BULB-E27",
+              "category": "home",
+              "price": 8.0,
+              "on_sale": false,
+              "condition_reported": "unused",
+              "shipping_fee": 0,
+              "return": false,
+              "delivery_date": "2026-10-15"
+            }
+          ]
+        },
+        "customer_tier": "standard"
+      },
+      "expected": {
+        "decision": "approve_full",
+        "refund_amount": 60.0,
+        "policy_rule": "R1-30-day-window",
+        "must_mention": [
+          "lamp",
+          "60.00"
+        ]
+      },
+      "metadata": {
+        "case_type": "partial-order",
+        "should_load_skill": true,
+        "needs_reference": null
+      }
+    },
+    {
+      "id": "rr-006",
+      "input": {
+        "customer_message": "I am a Gold member and I need to return a wool jacket delivered about seven weeks ago. It has not been worn.",
+        "order": {
+          "order_id": "KC-1006",
+          "order_date": "2026-08-26",
+          "delivery_date": "2026-08-30",
+          "today": "2026-10-20",
+          "customer_tier": "gold",
+          "items": [
+            {
+              "sku": "JACKET-WOOL",
+              "category": "apparel",
+              "price": 120.0,
+              "on_sale": false,
+              "condition_reported": "unused",
+              "shipping_fee": 0,
+              "return": true,
+              "delivery_date": "2026-08-30"
+            }
+          ]
+        },
+        "customer_tier": "gold"
+      },
+      "expected": {
+        "decision": "approve_full",
+        "refund_amount": 120.0,
+        "policy_rule": "R2-gold-60-days",
+        "must_mention": [
+          "Gold",
+          "60 days"
+        ]
+      },
+      "metadata": {
+        "case_type": "gold-window",
+        "should_load_skill": true,
+        "needs_reference": null
+      }
+    },
+    {
+      "id": "rr-007",
+      "input": {
+        "customer_message": "The sale dress does not suit me. I bought it on sale five days ago and have not worn it. Can I return it?",
+        "order": {
+          "order_id": "KC-1007",
+          "order_date": "2026-10-14",
+          "delivery_date": "2026-10-15",
+          "today": "2026-10-20",
+          "customer_tier": "standard",
+          "items": [
+            {
+              "sku": "DRESS-SALE",
+              "category": "apparel",
+              "price": 40.0,
+              "on_sale": true,
+              "condition_reported": "unused",
+              "shipping_fee": 0,
+              "return": true,
+              "delivery_date": "2026-10-15"
+            }
+          ]
+        },
+        "customer_tier": "standard"
+      },
+      "expected": {
+        "decision": "store_credit",
+        "refund_amount": 40.0,
+        "policy_rule": "R4-sale-store-credit",
+        "must_mention": [
+          "store credit",
+          "40.00"
+        ]
+      },
+      "metadata": {
+        "case_type": "sale",
+        "should_load_skill": true,
+        "needs_reference": "references/sale-items.md"
+      }
+    },
+    {
+      "id": "rr-008",
+      "input": {
+        "customer_message": "The mug set arrived cracked. I am attaching a photo. It was delivered two days ago. Please refund the mugs and the shipping.",
+        "order": {
+          "order_id": "KC-1008",
+          "order_date": "2026-10-16",
+          "delivery_date": "2026-10-18",
+          "today": "2026-10-20",
+          "customer_tier": "standard",
+          "items": [
+            {
+              "sku": "MUG-SET",
+              "category": "home",
+              "price": 32.0,
+              "on_sale": false,
+              "condition_reported": "damaged",
+              "shipping_fee": 4.95,
+              "return": true,
+              "photo": true,
+              "delivery_date": "2026-10-18"
+            }
+          ]
+        },
+        "customer_tier": "standard"
+      },
+      "expected": {
+        "decision": "approve_full",
+        "refund_amount": 36.95,
+        "policy_rule": "R5-damaged-on-arrival",
+        "must_mention": [
+          "photo",
+          "36.95"
+        ]
+      },
+      "metadata": {
+        "case_type": "damaged",
+        "should_load_skill": true,
+        "needs_reference": "references/damaged-goods.md"
+      }
+    },
+    {
+      "id": "rr-009",
+      "input": {
+        "customer_message": "I downloaded the e-book yesterday and I have changed my mind. Please refund it.",
+        "order": {
+          "order_id": "KC-1009",
+          "order_date": "2026-10-17",
+          "delivery_date": "2026-10-18",
+          "today": "2026-10-20",
+          "customer_tier": "standard",
+          "items": [
+            {
+              "sku": "EBOOK-01",
+              "category": "ebook",
+              "price": 24.99,
+              "on_sale": false,
+              "condition_reported": "unused",
+              "shipping_fee": 0,
+              "return": true,
+              "downloaded": true,
+              "delivery_date": "2026-10-18"
+            }
+          ]
+        },
+        "customer_tier": "standard"
+      },
+      "expected": {
+        "decision": "deny",
+        "refund_amount": null,
+        "policy_rule": "R6-digital-download",
+        "must_mention": [
+          "downloaded"
+        ]
+      },
+      "metadata": {
+        "case_type": "digital",
+        "should_load_skill": true,
+        "needs_reference": "references/digital-and-subscriptions.md"
+      }
+    },
+    {
+      "id": "rr-010",
+      "input": {
+        "customer_message": "Please cancel my annual home plan and refund the months I will not use. I started it on 1 July.",
+        "order": {
+          "order_id": "KC-1010",
+          "order_date": "2026-07-01",
+          "delivery_date": "2026-07-01",
+          "today": "2026-10-20",
+          "customer_tier": "standard",
+          "items": [
+            {
+              "sku": "PLAN-ANNUAL",
+              "category": "subscription",
+              "price": 119.88,
+              "on_sale": false,
+              "condition_reported": "unused",
+              "shipping_fee": 0,
+              "return": true,
+              "plan_start": "2026-07-01",
+              "delivery_date": "2026-07-01"
+            }
+          ]
+        },
+        "customer_tier": "standard"
+      },
+      "expected": {
+        "decision": "approve_partial",
+        "refund_amount": 79.92,
+        "policy_rule": "R7-subscription-pro-rata",
+        "must_mention": [
+          "79.92",
+          "months"
+        ]
+      },
+      "metadata": {
+        "case_type": "subscription",
+        "should_load_skill": true,
+        "needs_reference": "references/digital-and-subscriptions.md"
+      }
+    },
+    {
+      "id": "rr-011",
+      "input": {
+        "customer_message": "I want to return the jeans from the start of August. They are unworn, but I only just found the receipt.",
+        "order": {
+          "order_id": "KC-1011",
+          "order_date": "2026-07-28",
+          "delivery_date": "2026-08-01",
+          "today": "2026-10-20",
+          "customer_tier": "standard",
+          "items": [
+            {
+              "sku": "JEANS-INDIGO",
+              "category": "apparel",
+              "price": 70.0,
+              "on_sale": false,
+              "condition_reported": "unused",
+              "shipping_fee": 0,
+              "return": true,
+              "delivery_date": "2026-08-01"
+            }
+          ]
+        },
+        "customer_tier": "standard"
+      },
+      "expected": {
+        "decision": "deny",
+        "refund_amount": null,
+        "policy_rule": "R3-outside-window",
+        "must_mention": [
+          "30 days"
+        ]
+      },
+      "metadata": {
+        "case_type": "outside-window",
+        "should_load_skill": true,
+        "needs_reference": null
+      }
+    },
+    {
+      "id": "rr-012",
+      "input": {
+        "customer_message": "The laptop is unused and still sealed. I would like a full refund. It was delivered last week.",
+        "order": {
+          "order_id": "KC-1012",
+          "order_date": "2026-10-09",
+          "delivery_date": "2026-10-12",
+          "today": "2026-10-20",
+          "customer_tier": "standard",
+          "items": [
+            {
+              "sku": "LAPTOP-14",
+              "category": "electronics",
+              "price": 899.0,
+              "on_sale": false,
+              "condition_reported": "unused",
+              "shipping_fee": 0,
+              "return": true,
+              "delivery_date": "2026-10-12"
+            }
+          ]
+        },
+        "customer_tier": "standard"
+      },
+      "expected": {
+        "decision": "escalate",
+        "refund_amount": null,
+        "policy_rule": "R9-approval-limit",
+        "must_mention": [
+          "500"
+        ]
+      },
+      "metadata": {
+        "case_type": "over-limit",
+        "should_load_skill": true,
+        "needs_reference": null
+      }
+    },
+    {
+      "id": "rr-013",
+      "input": {
+        "customer_message": "Where is my parcel? The tracking has not moved since Monday.",
+        "order": {
+          "order_id": "KC-1013",
+          "order_date": "2026-10-12",
+          "delivery_date": "2026-10-18",
+          "today": "2026-10-20",
+          "customer_tier": "standard",
+          "items": []
+        },
+        "customer_tier": "standard"
+      },
+      "expected": {
+        "decision": "not_applicable",
+        "refund_amount": null,
+        "policy_rule": null,
+        "must_mention": [
+          "tracking"
+        ]
+      },
+      "metadata": {
+        "case_type": "shipping",
+        "should_load_skill": false,
+        "needs_reference": null
+      }
+    },
+    {
+      "id": "rr-014",
+      "input": {
+        "customer_message": "Can you change the delivery address to the office on Harbour Street before the parcel goes out?",
+        "order": {
+          "order_id": "KC-1014",
+          "order_date": "2026-10-18",
+          "delivery_date": "2026-10-22",
+          "today": "2026-10-20",
+          "customer_tier": "standard",
+          "items": []
+        },
+        "customer_tier": "standard"
+      },
+      "expected": {
+        "decision": "not_applicable",
+        "refund_amount": null,
+        "policy_rule": null,
+        "must_mention": [
+          "address"
+        ]
+      },
+      "metadata": {
+        "case_type": "address",
+        "should_load_skill": false,
+        "needs_reference": null
+      }
+    },
+    {
+      "id": "rr-015",
+      "input": {
+        "customer_message": "What size should I order in the linen shirt? I am usually a medium in other brands.",
+        "order": {
+          "order_id": "KC-1015",
+          "order_date": "2026-10-01",
+          "delivery_date": "2026-10-04",
+          "today": "2026-10-20",
+          "customer_tier": "standard",
+          "items": []
+        },
+        "customer_tier": "standard"
+      },
+      "expected": {
+        "decision": "not_applicable",
+        "refund_amount": null,
+        "policy_rule": null,
+        "must_mention": [
+          "size"
+        ]
+      },
+      "metadata": {
+        "case_type": "sizing",
+        "should_load_skill": false,
+        "needs_reference": null
+      }
+    },
+    {
+      "id": "rr-016",
+      "input": {
+        "customer_message": "Could you send a copy of the invoice for my last order? I need it for expenses.",
+        "order": {
+          "order_id": "KC-1016",
+          "order_date": "2026-09-30",
+          "delivery_date": "2026-10-03",
+          "today": "2026-10-20",
+          "customer_tier": "standard",
+          "items": []
+        },
+        "customer_tier": "standard"
+      },
+      "expected": {
+        "decision": "not_applicable",
+        "refund_amount": null,
+        "policy_rule": null,
+        "must_mention": [
+          "invoice"
+        ]
+      },
+      "metadata": {
+        "case_type": "invoice",
+        "should_load_skill": false,
+        "needs_reference": null
+      }
+    }
+  ]
+}
