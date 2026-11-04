@@ -59,8 +59,10 @@ version 2 labelled `candidate`. If those version numbers are already taken by
 different files, the publish command stops and asks for a fresh project.
 
 The seeded window ends on `generation.as_of_date` when the portal passes it, at
-noon UTC. Volume is `generation.target_traces` (default 84, about three tickets
-a day for four weeks). The same seed and as-of date rewrite the same Spool file.
+noon UTC. With no as-of date the window ends at the time of the run. Volume is
+`generation.target_traces` (default 84 turns, grouped into sessions of one to
+four messages across about four weeks). The same seed and as-of date rewrite
+the same Spool file.
 Importing that file again **appends**. OTLP does not upsert. Re-seed into a
 cleared project.
 
@@ -73,8 +75,10 @@ cleared project.
 synth companion --config config/demo.yaml --host 0.0.0.0 --port 8080
 ```
 
-`/chat` runs one ticket against production or candidate, or both. Presenter
-commands sit in the footer. Offline preview, fixture data only:
+`/chat` is a multi-turn desk. One conversation is one Langfuse session, and
+each message is one trace. The production / candidate toggle picks the skill
+label. New chat starts another session. Presenter commands sit in the footer.
+Offline preview, fixture data only:
 
 ```bash
 python -m synth.companion.preview --port 8765
@@ -100,7 +104,7 @@ directory, or `--lockfile`) and runs the files that were installed.
 
 `pytest`, `ruff check`, and `synth-authoring validate`, `conformance`, and
 `check` run offline. `scripts/calc_refund.py` reproduces every golden amount.
-The golden Spool is byte-identical for seed 42, 24 traces, as-of 2026-01-01.
+The golden Spool is byte-identical for seed 42, 24 traces, as-of 2026-10-20.
 
 Live checks that need a project are listed in the pull request: both skill
 versions and their per-file diff, the 16-item dataset, both experiment runs in

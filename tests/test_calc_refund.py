@@ -164,3 +164,25 @@ def test_edges_around_the_rules():
     assert over["decision"] == "escalate"
     assert over["refund_amount"] is None
     assert over["policy_rule"] == "R9-approval-limit"
+
+
+def test_a_false_downloaded_flag_does_not_make_a_physical_item_digital():
+    calc = _module().calc_refund
+    result = calc({
+        "today": "2026-10-20",
+        "customer_tier": "standard",
+        "items": [{
+            "sku": "MUG-SET",
+            "category": "home",
+            "price": "32.00",
+            "shipping_fee": "4.95",
+            "delivery_date": "2026-10-18",
+            "condition_reported": "damaged",
+            "photo": True,
+            "downloaded": False,
+            "return": True,
+        }],
+    })
+    assert result["decision"] == "approve_full"
+    assert result["refund_amount"] == 36.95
+    assert result["policy_rule"] == "R5-damaged-on-arrival"

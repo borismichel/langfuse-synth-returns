@@ -10,6 +10,6 @@ target:
   project_hint: "demo"
 generation:
   seed: 42
-  # About three tickets a day for the four weeks before the as-of date.
+  # About three turns a day, grouped into sessions, for the four weeks before the as-of date.
   # The golden gate overrides this to 24.
   target_traces: 84

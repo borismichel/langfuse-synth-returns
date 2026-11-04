@@ -1,6 +1,9 @@
-"""Returns Desk companion. Preview uses fixtures. Live runs one ticket or v1 against v2."""
+"""Returns Desk companion. Preview uses fixtures. Live runs one chat turn at a time."""
 from __future__ import annotations
 
+import json
+import re
+import secrets
 from html import escape
 from typing import Any
 
@@ -57,40 +60,187 @@ def _items() -> list[dict]:
     return load_golden()["items"]
 
 
-def _worse(expected: dict) -> dict:
-    amount = expected.get("refund_amount")
-    if isinstance(amount, (int, float)):
-        twisted = round(float(amount) - 1, 2)
-        return {
-            "decision": expected.get("decision"),
-            "refund_amount": twisted,
-            "reply": (
-                f"Preview fixture for v1. The desk worked the amount out itself "
-                f"and quoted EUR {twisted:.2f}."
+_CHAT_CSS = """
+<style>
+.transcript{display:flex;flex-direction:column;gap:12px;margin:18px 0 8px}
+.bubble{max-width:86%;padding:12px 14px;border:1px solid var(--line-structure);
+  border-radius:var(--radius);background:var(--surface-bg);font-size:15px}
+.bubble.customer{margin-left:auto;background:var(--surface-beige)}
+.bubble.desk{margin-right:auto}
+.bubble .who{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--text-tertiary);margin-bottom:6px}
+.composer button.send{margin-top:12px}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.row button{width:auto;margin:0;padding:8px 12px;background:transparent}
+.row button:hover{background:var(--active-tint)}
+details.trace{margin-top:8px}
+details.trace summary{cursor:pointer;font-family:var(--font-mono);font-size:11px;
+  color:var(--text-tertiary)}
+.bubble .meta{font-family:var(--font-mono);font-size:12px;color:var(--text-tertiary);margin:8px 0 0}
+.bubble .meta strong{color:var(--text-primary)}
+</style>
+"""
+STARTERS = (
+    ("parcel", "Where is my parcel? The tracking has not moved since Monday."),
+    ("shirt", "Hi, I would like to return the navy t-shirt. It is unused. The price was 29.99."),
+    (
+        "dress",
+        "The sale dress does not suit me. I bought it on sale five days ago and have not worn it.",
+    ),
+    (
+        "mugs",
+        "The mug set arrived cracked. I am attaching a photo. "
+        "Please refund the mugs and the postage.",
+    ),
+)
+_SESSION_RE = re.compile(r"^kc-[a-f0-9]{16}$")
+
+
+def _turn(
+    *,
+    decision: str,
+    amount,
+    loaded: bool,
+    calculated: bool,
+    reply: str,
+    reference: str | None = None,
+) -> dict:
+    return {
+        "decision": decision,
+        "refund_amount": amount,
+        "loaded": loaded,
+        "calculated": calculated,
+        "reference": reference,
+        "text": reply,
+    }
+
+
+def _preview_turn(message: str, prior: list[dict], label: str) -> dict:
+    """Fixture reply. Production guesses; candidate follows the checklist."""
+    low = message.lower()
+    follow = bool(prior)
+    postage = "postage" in low or "shipping" in low
+    send_back = "send it back" in low or "how do i send" in low
+    when_refund = "refund land" in low or "when does the refund" in low
+    parcelish = any(
+        word in low for word in ("parcel", "tracking", "where is", "invoice", "address")
+    )
+    shirt = "t-shirt" in low or "tshirt" in low
+    dress = "dress" in low
+    mugs = "mug" in low or "cracked" in low
+    is_return = shirt or dress or mugs or any(
+        word in low for word in ("return", "refund", "money back")
+    )
+    candidate = label == "candidate"
+    if follow and postage:
+        if candidate:
+            return _turn(
+                decision="not_applicable", amount=None, loaded=False, calculated=False,
+                reply=(
+                    "Postage is refunded only when the item arrived damaged and you sent a photo. "
+                    "A standard return refunds the item price."
+                ),
+            )
+        return _turn(
+            decision="not_applicable", amount=None, loaded=True, calculated=False,
+            reply=(
+                "Preview fixture for v1. The desk loaded the returns skill again "
+                "and worked the postage out itself."
             ),
-            "loaded_skill": True,
-            "files_read": [],
-        }
-    if expected.get("decision") == "not_applicable":
-        return {
-            "decision": "not_applicable",
-            "refund_amount": None,
-            "reply": (
+        )
+    if follow and (send_back or when_refund):
+        if candidate:
+            return _turn(
+                decision="not_applicable", amount=None, loaded=False, calculated=False,
+                reply=(
+                    "Print the returns label in your Kestrel account and drop the parcel off "
+                    "within fourteen days. The refund lands on the original card three to five "
+                    "business days after we scan it."
+                ),
+            )
+        return _turn(
+            decision="not_applicable", amount=None, loaded=True, calculated=False,
+            reply=(
+                "Preview fixture for v1. The desk loaded the returns skill again. "
+                "Send the parcel back and the refund should appear on your card."
+            ),
+        )
+    if parcelish and not is_return:
+        if candidate:
+            return _turn(
+                decision="not_applicable", amount=None, loaded=False, calculated=False,
+                reply=(
+                    "Preview fixture for v2. This is not a return, so the returns skill "
+                    "stays closed. "
+                    "The parcel is still in transit."
+                ),
+            )
+        return _turn(
+            decision="not_applicable", amount=None, loaded=True, calculated=False,
+            reply=(
                 "Preview fixture for v1. The desk loaded the returns skill "
                 "for a question that is not a return."
             ),
-            "loaded_skill": True,
-            "files_read": ["SKILL.md"],
-        }
-    return {
-        "decision": expected.get("decision"),
-        "refund_amount": expected.get("refund_amount"),
-        "reply": (
-            "Preview fixture for v1. The reply follows the vague skill and skips the calculator."
+        )
+    if shirt:
+        if candidate:
+            return _turn(
+                decision="approve_full", amount=29.99, loaded=True, calculated=True,
+                reply=(
+                    "Preview fixture for v2. The checklist names the rule "
+                    "and the calculator returns 29.99."
+                ),
+            )
+        return _turn(
+            decision="approve_full", amount=28.99, loaded=True, calculated=False,
+            reply=(
+                "Preview fixture for v1. The desk worked the amount out itself "
+                "and quoted EUR 28.99."
+            ),
+        )
+    if dress:
+        if candidate:
+            return _turn(
+                decision="store_credit", amount=40.0, loaded=True, calculated=True,
+                reference="references/sale-items.md",
+                reply="Preview fixture for v2. Sale items come back as store credit of EUR 40.00.",
+            )
+        return _turn(
+            decision="store_credit", amount=39.0, loaded=True, calculated=False,
+            reply=(
+                "Preview fixture for v1. The desk worked the amount out itself "
+                "and quoted EUR 39.00."
+            ),
+        )
+    if mugs:
+        if candidate:
+            return _turn(
+                decision="approve_full", amount=36.95, loaded=True, calculated=True,
+                reference="references/damaged-goods.md",
+                reply=(
+                    "Preview fixture for v2. The calculator returns EUR 36.95, "
+                    "the mugs plus postage."
+                ),
+            )
+        return _turn(
+            decision="approve_full", amount=36.95, loaded=True, calculated=False,
+            reply=(
+                "Preview fixture for v1. The photo is on the ticket. "
+                "The desk quoted EUR 36.95 without the calculator."
+            ),
+        )
+    if candidate:
+        return _turn(
+            decision="not_applicable", amount=None, loaded=False, calculated=False,
+            reply="Preview fixture for v2. The checklist does not treat this as a return.",
+        )
+    return _turn(
+        decision="not_applicable", amount=None, loaded=True, calculated=False,
+        reply=(
+            "Preview fixture for v1. The desk loaded the returns skill "
+            "for a question that is not a return."
         ),
-        "loaded_skill": True,
-        "files_read": [],
-    }
+    )
 
 
 def _outline(loaded: bool, reference: str | None, calculated: bool) -> str:
@@ -106,94 +256,225 @@ def _outline(loaded: bool, reference: str | None, calculated: bool) -> str:
     return "<pre>" + escape("\n".join(rows)) + "</pre>"
 
 
-def _result_card(title: str, result: dict, *, reference: str | None, calculated: bool) -> str:
-    amount = result.get("refund_amount")
-    shown = "none" if amount is None else escape(str(amount))
-    return (
-        "<article class='card'>"
-        f"<h2>{escape(title)}</h2>"
-        f"<p class='kv'>decision <strong>{escape(str(result.get('decision')))}</strong></p>"
-        f"<p class='kv'>amount <strong>{shown}</strong></p>"
-        f"<p>{escape(str(result.get('reply') or ''))}</p>"
-        + _outline(bool(result.get("loaded_skill")), reference, calculated)
-        + "</article>"
-    )
+_MAX_MESSAGES = 24
+_MESSAGE_LIMIT = 2000
+_STARTER_LABELS = {
+    "parcel": "Where is my parcel?",
+    "shirt": "Return the t-shirt",
+    "dress": "Sale dress",
+    "mugs": "Cracked mugs",
+}
 
 
-def _ticket_from_form(form: dict) -> tuple[dict | None, str | None]:
-    chosen = (form.get("item") or "").strip()
-    message = (form.get("message") or "").strip()
-    match = next((row for row in _items() if row["id"] == chosen), None)
-    if match is None and not message:
-        return None, "Pick a golden ticket or type a message."
-    if match is None:
+def _session_id(raw: str) -> str:
+    text = (raw or "").strip()
+    if _SESSION_RE.fullmatch(text):
+        return text
+    return "kc-" + secrets.token_hex(8)
+
+
+def _read_history(raw: str) -> list[dict]:
+    try:
+        data = json.loads(raw) if raw else []
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(data, list):
+        return []
+    clean: list[dict] = []
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        role = item.get("role")
+        content = item.get("content")
+        if role not in {"user", "assistant"} or not isinstance(content, str):
+            continue
+        content = content.strip()[:_MESSAGE_LIMIT]
+        if not content:
+            continue
+        kept: dict[str, Any] = {"role": role, "content": content}
+        if role == "user":
+            item_id = item.get("item_id")
+            if isinstance(item_id, str) and re.fullmatch(r"rr-\d{3}", item_id):
+                kept["item_id"] = item_id
+        else:
+            amount = item.get("refund_amount")
+            reference = item.get("reference")
+            kept["decision"] = str(item.get("decision") or "not_applicable")[:40]
+            kept["refund_amount"] = amount if isinstance(amount, (int, float)) else None
+            kept["loaded"] = bool(item.get("loaded"))
+            kept["calculated"] = bool(item.get("calculated"))
+            if item.get("label") in {"production", "candidate"}:
+                kept["label"] = item["label"]
+            if isinstance(reference, str) and len(reference) < 120:
+                kept["reference"] = reference
+        clean.append(kept)
+    return clean[-_MAX_MESSAGES:]
+
+
+def _match_item(message: str) -> dict | None:
+    low = " ".join(message.lower().split())
+    if len(low) < 12:
+        return None
+    head = low[:40]
+    for row in _items():
+        golden = " ".join(row["input"]["customer_message"].lower().split())
+        if head in golden or golden[:40] in low:
+            return row
+    return None
+
+
+def _ticket_for(message: str, history: list[dict]) -> tuple[dict, str | None]:
+    row = _match_item(message)
+    if row is None:
+        for turn in reversed(history):
+            item_id = turn.get("item_id")
+            if item_id:
+                row = next((item for item in _items() if item["id"] == item_id), None)
+                break
+    if row is None:
         ticket = {
             "customer_message": message,
             "order": {"order_id": "KC-LIVE", "items": [], "today": "2026-10-20"},
             "customer_tier": "standard",
         }
-        return {"input": ticket, "expected": {}, "metadata": {}, "id": "custom"}, None
-    ticket = dict(match["input"])
-    if message:
-        ticket["customer_message"] = message
-    return {**match, "input": ticket}, None
+        return ticket, None
+    ticket = dict(row["input"])
+    ticket["customer_message"] = message
+    return ticket, str(row["id"])
 
 
-def _form(selected: str = "", message: str = "", label: str = "production") -> str:
-    options = ["<option value=''>Custom message only</option>"]
-    for row in _items():
-        mark = " selected" if row["id"] == selected else ""
-        text = row["input"]["customer_message"]
-        short = text if len(text) <= 72 else text[:69] + "..."
-        option = (
-            f"<option value='{escape(row['id'])}'{mark}>"
-            f"{escape(row['id'])} — {escape(short)}</option>"
+def _record_turn(reply: dict, label: str) -> dict:
+    recorded = {
+        "role": "assistant",
+        "content": str(reply["text"])[:_MESSAGE_LIMIT],
+        "decision": reply["decision"],
+        "refund_amount": reply["refund_amount"],
+        "loaded": bool(reply["loaded"]),
+        "calculated": bool(reply["calculated"]),
+        "label": label,
+    }
+    if reply.get("reference"):
+        recorded["reference"] = reply["reference"]
+    return recorded
+
+
+def _bubble(turn: dict) -> str:
+    customer = turn["role"] == "user"
+    desk = turn.get("label") or "desk"
+    who = "You" if customer else "Returns Desk · " + escape(str(desk))
+    body = f"<p>{escape(turn['content'])}</p>"
+    extra = ""
+    if not customer:
+        amount = turn.get("refund_amount")
+        shown = "none" if amount is None else escape(str(amount))
+        extra = (
+            f"<p class='meta'>decision <strong>{escape(str(turn.get('decision')))}</strong>"
+            f" · amount <strong>{shown}</strong></p>"
+            "<details class='trace'><summary>This turn</summary>"
+            + _outline(
+                bool(turn.get("loaded")),
+                turn.get("reference"),
+                bool(turn.get("calculated")),
+            )
+            + "</details>"
         )
-        options.append(option)
+    klass = "customer" if customer else "desk"
+    return f"<article class='bubble {klass}'><div class='who'>{who}</div>{body}{extra}</article>"
+
+
+def _transcript(history: list[dict]) -> str:
+    if not history:
+        return "<p class='sub'>Ask about a return, or pick a starter below.</p>"
+    bubbles = "".join(_bubble(turn) for turn in history)
+    return f"<div class='transcript'>{bubbles}</div>"
+
+
+def _composer(*, history: list[dict], session_id: str, label: str, note: str = "") -> str:
+    blob = escape(json.dumps(history, separators=(",", ":"), ensure_ascii=False))
     prod = " selected" if label != "candidate" else ""
     cand = " selected" if label == "candidate" else ""
+    starters = "".join(
+        f"<button type='submit' name='starter' value='{escape(key)}'>"
+        f"{escape(_STARTER_LABELS[key])}</button>"
+        for key, _text in STARTERS
+    )
+    warning = f"<p class='note'>{escape(note)}</p>" if note else ""
     return (
-        f"<form method='post' action='{paths.local('/chat')}'>"
-        f"<p><label>Golden ticket<br><select name='item'>{''.join(options)}</select></label></p>"
-        f"<p><label>Message<br><textarea name='message' rows='4' cols='72'>"
-        f"{escape(message)}</textarea></label></p>"
+        f"<form class='composer' method='post' action='{paths.local('/chat')}'>"
+        f"<input type='hidden' name='history' value='{blob}'>"
+        f"<input type='hidden' name='session_id' value='{escape(session_id)}'>"
         "<p><label>Skill label<br>"
         f"<select name='label'><option value='production'{prod}>production (v1)</option>"
         f"<option value='candidate'{cand}>candidate (v2)</option></select></label></p>"
-        "<p><button name='action' value='run'>Run ticket</button> "
-        "<button name='action' value='compare'>Run v1 vs v2</button></p>"
+        "<p><label>Message<br>"
+        "<textarea name='message' rows='3' cols='72' "
+        "placeholder='Ask a follow-up, or describe the return'></textarea></label></p>"
+        f"{warning}"
+        "<p class='row'>"
+        f"{starters}"
+        "</p>"
+        "<p><button class='send' type='submit'>Send</button></p>"
         "</form>"
     )
 
 
-def _fixture_column(row: dict, label: str) -> str:
-    expected = row.get("expected") or {}
-    meta = row.get("metadata") or {}
-    if not expected.get("decision"):
-        # A typed message with no golden row is a non-return question.
-        expected = {"decision": "not_applicable", "refund_amount": None}
-        meta = {"should_load_skill": label != "candidate", "needs_reference": None}
-    reference = meta.get("needs_reference")
-    if label == "candidate":
-        result = {
-            "decision": expected.get("decision"),
-            "refund_amount": expected.get("refund_amount"),
-            "reply": (
-                "Preview fixture for v2. The checklist names the rule and the calculator "
-                f"returns {expected.get('refund_amount')}."
-            ),
-            "loaded_skill": bool(meta.get("should_load_skill")),
-            "files_read": [reference] if reference else [],
-        }
-        calculated = bool(meta.get("should_load_skill")) and expected.get("decision") not in {
-            None,
-            "not_applicable",
-        }
-    else:
-        result = _worse(expected)
-        reference = None
-        calculated = False
-    return _result_card(f"Fixture · {label}", result, reference=reference, calculated=calculated)
+def _chat_page(
+    *,
+    history: list[dict],
+    session_id: str,
+    label: str,
+    preview: bool,
+    note: str = "",
+) -> str:
+    fresh = paths.local("/chat")
+    body = (
+        _CHAT_CSS
+        + "<p class='eyebrow'>Kestrel &amp; Co</p>"
+        + "<h1>Returns <span class='mark'>Desk</span></h1>"
+        + "<p class='sub'>One conversation is one Langfuse session. "
+        + "Each message is its own trace. New chat starts a new session.</p>"
+        + f"<p class='kv'>session <strong>{escape(session_id)}</strong> · "
+        + f"<a class='back' href='{fresh}'>New chat</a></p>"
+        + _transcript(history)
+        + _composer(history=history, session_id=session_id, label=label, note=note)
+    )
+    return _page(body, title="Returns Desk · chat", preview=preview)
+
+
+def _live_turn(adapter, message: str, history: list[dict], label: str, session_id: str) -> dict:
+    from ..returns_agent.agent import run_ticket
+    from ..returns_agent.tools import fetch_skill
+
+    ticket, _item_id = _ticket_for(message, history)
+    prior = [
+        {"role": turn["role"], "content": turn["content"]}
+        for turn in history
+        if turn.get("role") in {"user", "assistant"}
+    ]
+    skill = fetch_skill(adapter.langfuse(), label=label)
+    llm = adapter.llm(MODEL)
+    result = run_ticket(
+        skill,
+        ticket,
+        history=prior,
+        emitter=adapter.emitter(),
+        anthropic_client=llm.bind(),
+        model=llm.model,
+        user_id="kc-" + session_id.split("-", 1)[-1][:8],
+        session_id=session_id,
+        metadata={"source": "companion", "label": label, "turn": str(len(prior) // 2 + 1)},
+    )
+    files = [str(path) for path in (result.get("files_read") or [])]
+    reference = next((path for path in files if path.startswith("references/")), None)
+    amount = result.get("refund_amount")
+    return _turn(
+        decision=str(result.get("decision") or "not_applicable"),
+        amount=amount if isinstance(amount, (int, float)) else None,
+        loaded=bool(result.get("loaded_skill")),
+        calculated=bool(result.get("calculated")),
+        reference=reference,
+        reply=str(result.get("reply") or ""),
+    )
 
 
 def create_app(adapter: CompanionAdapterContract, *, preview: bool = False) -> Any:
@@ -208,75 +489,63 @@ def create_app(adapter: CompanionAdapterContract, *, preview: bool = False) -> A
             "<p class='sub'>Version 1 of returns-and-refunds is in production: one long note "
             "that tells the model to work amounts out itself. Version 2 is the candidate: "
             "a short checklist, one reference per edge case, and the refund calculator.</p>"
-            f"<p><a href='{paths.local('/chat')}'>Open a ticket</a></p>"
+            f"<p><a href='{paths.local('/chat')}'>Open the desk</a></p>"
         )
         return _page(body, title="Returns Desk", preview=preview)
 
     @app.get("/chat", response_class=HTMLResponse)
     async def _chat() -> str:
-        body = "<h1>Run a ticket</h1>" + _form()
-        return _page(body, title="Returns Desk · ticket", preview=preview)
+        return _chat_page(
+            history=[],
+            session_id=_session_id(""),
+            label="production",
+            preview=preview,
+        )
 
     @app.post("/chat", response_class=HTMLResponse)
     async def _submit(request: Request) -> str:
-        form = dict(await request.form())
-        action = str(form.get("action") or "run")
-        row, error = _ticket_from_form({key: str(value) for key, value in form.items()})
-        selected = str(form.get("item") or "")
-        message = str(form.get("message") or "")
-        label = str(form.get("label") or "production")
+        form = {key: str(value) for key, value in (await request.form()).items()}
+        label = form.get("label") or "production"
         if label not in {"production", "candidate"}:
             label = "production"
-        body = "<h1>Run a ticket</h1>" + _form(selected, message, label)
-        if error or row is None:
-            note = escape(error or "Pick a golden ticket or type a message.")
-            body += f"<p class='note'>{note}</p>"
-            return _page(body, title="Returns Desk · ticket", preview=preview)
-        if preview:
-            if action == "compare":
-                body += _fixture_column(row, "production") + _fixture_column(row, "candidate")
-            else:
-                body += _fixture_column(row, label)
-            return _page(body, title="Returns Desk · ticket", preview=preview)
+        posted_session = form.get("session_id") or ""
+        session_id = _session_id(posted_session)
+        history = _read_history(form.get("history") or "") if _SESSION_RE.fullmatch(
+            posted_session
+        ) else []
+        starter = form.get("starter") or ""
+        message = dict(STARTERS).get(starter) or (form.get("message") or "")
+        message = message.strip()[:_MESSAGE_LIMIT]
+        if not message:
+            return _chat_page(
+                history=history,
+                session_id=session_id,
+                label=label,
+                preview=preview,
+                note="Type a message.",
+            )
+        _ticket, item_id = _ticket_for(message, history)
         try:
-            body += _live(adapter, row, action=action, label=label)
-        except Exception as exc:  # noqa: BLE001 — show the failure on the desk, not a stack
-            kind = escape(type(exc).__name__)
-            body += f"<p class='note'>The desk could not run this ticket: {kind}</p>"
-        return _page(body, title="Returns Desk · ticket", preview=preview)
+            if preview:
+                reply = _preview_turn(message, history, label)
+            else:
+                reply = _live_turn(adapter, message, history, label, session_id)
+        except Exception as exc:  # noqa: BLE001 — type name only, never a stack or payload
+            kind = type(exc).__name__
+            return _chat_page(
+                history=history,
+                session_id=session_id,
+                label=label,
+                preview=preview,
+                note=f"The desk could not answer this turn: {kind}",
+            )
+        user_turn: dict[str, Any] = {"role": "user", "content": message}
+        if item_id:
+            user_turn["item_id"] = item_id
+        history = [*history, user_turn, _record_turn(reply, label)][-_MAX_MESSAGES:]
+        return _chat_page(history=history, session_id=session_id, label=label, preview=preview)
 
     return app
-
-
-def _live(adapter, row: dict, *, action: str, label: str) -> str:
-    from ..returns_agent.agent import run_ticket
-    from ..returns_agent.tools import fetch_skill
-
-    def once(skill_label: str) -> str:
-        skill = fetch_skill(adapter.langfuse(), label=skill_label)
-        llm = adapter.llm(MODEL)
-        result = run_ticket(
-            skill,
-            row["input"],
-            emitter=adapter.emitter(),
-            anthropic_client=llm.bind(),
-            model=llm.model,
-            user_id=f"kc-{row.get('id', 'live')}",
-            session_id=f"companion-{row.get('id', 'live')}-{skill_label}",
-            metadata={"source": "companion", "label": skill_label, "item_id": str(row.get("id"))},
-        )
-        reference = (row.get("metadata") or {}).get("needs_reference")
-        calculated = "scripts/calc_refund.py" in skill.files and bool(result.get("loaded_skill"))
-        return _result_card(
-            f"Live · {skill_label} · v{skill.version}",
-            result,
-            reference=reference if reference in (result.get("files_read") or []) else None,
-            calculated=calculated and result.get("refund_amount") is not None,
-        )
-
-    if action == "compare":
-        return once("production") + once("candidate")
-    return once(label)
 
 
 def main(argv: list[str] | None = None) -> int:
