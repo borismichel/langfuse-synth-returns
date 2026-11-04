@@ -4,7 +4,10 @@ from __future__ import annotations
 import json
 import os
 import re
+from contextlib import contextmanager
 from typing import Any
+
+from opentelemetry import context as otel_context
 
 from ..pricing import usage_and_cost
 from .tools import TOOL_SCHEMAS, FetchedSkill, dispatch
@@ -92,6 +95,24 @@ def _blocks(response) -> tuple[str, list]:
     return "\n".join(text), tools
 
 
+@contextmanager
+def _fresh_otel_context():
+    """Start a turn with no current span.
+
+    A long-running server can leave an OpenTelemetry span current after the
+    previous request: core's ``LiveEmitter.trace`` opens the root with
+    ``start_as_current_observation``, which parents onto that span, and the
+    parent id is not an observation in this trace. A standalone emitter in a
+    fresh process does not see the leak. Attaching an empty context here makes
+    the root parentless even when the previous span was not detached.
+    """
+    token = otel_context.attach(otel_context.Context())
+    try:
+        yield
+    finally:
+        otel_context.detach(token)
+
+
 def run_ticket(
     skill: FetchedSkill,
     ticket: dict,
@@ -132,7 +153,7 @@ def run_ticket(
         "prior_turns": prior,
     }
 
-    with emitter.trace(
+    with _fresh_otel_context(), emitter.trace(
         "returns-ticket",
         user_id=user_id,
         session_id=session_id,

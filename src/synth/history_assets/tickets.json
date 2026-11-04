@@ -40,7 +40,7 @@
       "should_load_skill": true,
       "policy_faithful": 0.5,
       "customer_message": "Hi, I want to return the unused navy t-shirt on {order}. It is still in the bag. The price was 29.99.",
-      "reply": "You can return the unused navy t-shirt on {order}. I worked the refund out as EUR 28.99 and we will send it to the card you paid with."
+      "reply": "You can return the unused navy t-shirt on {order}. The shelf price is EUR 29.99 and the prepaid returns label is EUR 1.00, so the refund is EUR 28.99 on the card you paid with."
     },
     {
       "key": "sale-reference",
@@ -61,7 +61,7 @@
       "needs_reference": "references/sale-items.md",
       "policy_faithful": 0.25,
       "customer_message": "The sale dress on {order} does not suit me. I bought it on sale five days ago and have not worn it. Please take it back.",
-      "reply": "Sale pieces come back as store credit. I am putting EUR 39.00 on the account for {order}."
+      "reply": "Sale pieces come back as store credit for the price paid, less the EUR 1.00 returns label. I am putting EUR 39.00 on the account for {order}."
     },
     {
       "key": "clean-shoes",
@@ -75,13 +75,13 @@
       "did_calc": false,
       "decision": "approve_full",
       "expected_decision": "approve_full",
-      "refund_amount": 89.0,
+      "refund_amount": 88.0,
       "expected_amount": 89.0,
       "policy_rule": "R1-30-day-window",
       "should_load_skill": true,
-      "policy_faithful": 1.0,
+      "policy_faithful": 0.5,
       "customer_message": "The trail shoes on {order} do not fit. They are unworn, in the box, and were delivered less than three weeks ago.",
-      "reply": "The unworn trail shoes on {order} are inside the 30-day window. Your refund is EUR 89.00.",
+      "reply": "The unworn trail shoes on {order} are inside the 30-day window. The shelf price is EUR 89.00 and the prepaid returns label is EUR 1.00, so your refund is EUR 88.00.",
       "calc": {
         "sku": "SHOE-TRAIL",
         "category": "apparel",
@@ -114,7 +114,7 @@
       "needs_reference": "references/damaged-goods.md",
       "policy_faithful": 1.0,
       "customer_message": "The mug set on {order} arrived cracked. A photo is attached. It was delivered two days ago. Please refund the mugs and the postage.",
-      "reply": "The mug set on {order} arrived damaged and the photo is on the ticket. The refund is EUR 36.95, the item plus the shipping you paid.",
+      "reply": "The mug set on {order} arrived damaged and the photo is on the ticket. The shop pays the returns label on damaged goods, so the refund is EUR 36.95, the item plus the shipping you paid.",
       "calc": {
         "sku": "MUG-SET",
         "category": "home",
@@ -162,11 +162,11 @@
       "expected_decision": "approve_full",
       "refund_amount": null,
       "expected_amount": 120.0,
-      "policy_rule": "R2-gold-60-days",
+      "policy_rule": "R3-outside-window",
       "should_load_skill": true,
       "policy_faithful": 0.25,
       "customer_message": "I am a Gold member. Please return the unworn wool jacket on {order}. It was delivered about seven weeks ago.",
-      "reply": "The jacket on {order} was delivered 51 days ago, and our window is 30 days, so I have to decline the return."
+      "reply": "The jacket on {order} was delivered 51 days ago. Gold accounts use the same 30-day window as every other account, so I have to decline the return."
     },
     {
       "key": "digital-reference",
@@ -243,12 +243,12 @@
       "expected_decision": "approve_partial",
       "refund_amount": 59.94,
       "expected_amount": 79.92,
-      "policy_rule": "R7-subscription-pro-rata",
+      "policy_rule": "R7-subscription-half-year",
       "should_load_skill": true,
       "needs_reference": "references/digital-and-subscriptions.md",
       "policy_faithful": 0.25,
       "customer_message": "Please cancel the annual home plan on {order} and refund the months I will not use. It started about four months ago and costs 119.88.",
-      "reply": "I estimate six months left on the annual plan for {order}, so the refund is EUR 59.94."
+      "reply": "The annual plan on {order} was cancelled in its first six months, so the refund is half the price, EUR 59.94."
     },
     {
       "key": "laptop-over-limit",
@@ -262,13 +262,13 @@
       "did_calc": false,
       "decision": "approve_full",
       "expected_decision": "escalate",
-      "refund_amount": 899.0,
+      "refund_amount": 898.0,
       "expected_amount": null,
       "policy_rule": "R9-approval-limit",
       "should_load_skill": true,
       "policy_faithful": 0.25,
       "customer_message": "The laptop on {order} is unused and still sealed. It was delivered last week and cost 899. Please refund it in full.",
-      "reply": "The laptop on {order} is unused and inside the window, so I am approving a refund of EUR 899.00."
+      "reply": "The laptop on {order} is unused and inside the window, and EUR 899.00 is within the desk's EUR 1000 limit. The prepaid returns label is EUR 1.00, so I am approving EUR 898.00."
     },
     {
       "key": "parcel-loads",
@@ -302,13 +302,13 @@
       "did_calc": false,
       "decision": "approve_full",
       "expected_decision": "approve_full",
-      "refund_amount": 45.0,
+      "refund_amount": 44.5,
       "expected_amount": 45.5,
       "policy_rule": "R1-30-day-window",
       "should_load_skill": true,
       "policy_faithful": 0.5,
       "customer_message": "Please refund the unused kettle on {order}. The seal is intact and it arrived last week. The price was 45.50.",
-      "reply": "The kettle on {order} is unused and inside 30 days. I make the refund EUR 45.00."
+      "reply": "The kettle on {order} is unused and inside 30 days. The shelf price is EUR 45.50 and the prepaid returns label is EUR 1.00, so the refund is EUR 44.50."
     },
     {
       "key": "book-with-calc",
@@ -322,13 +322,13 @@
       "did_calc": false,
       "decision": "approve_full",
       "expected_decision": "approve_full",
-      "refund_amount": 18.4,
+      "refund_amount": 17.4,
       "expected_amount": 18.4,
       "policy_rule": "R1-30-day-window",
       "should_load_skill": true,
-      "policy_faithful": 1.0,
+      "policy_faithful": 0.5,
       "customer_message": "I want to return the unread paperback on {order}. It was delivered within the last two weeks.",
-      "reply": "The paperback on {order} is unread and inside the window. The refund is EUR 18.40.",
+      "reply": "The paperback on {order} is unread and inside the window. The shelf price is EUR 18.40 and the prepaid returns label is EUR 1.00, so the refund is EUR 17.40.",
       "calc": {
         "sku": "BOOK-PAPER",
         "category": "books",

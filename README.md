@@ -1,9 +1,11 @@
 # Returns Desk
 
 A Demo Depot kit for Langfuse skill management. Kestrel & Co is fictional.
-`returns-and-refunds` v1 is a single long skill that tells the model to work
-refund amounts out itself. v2 is a checklist, one reference per edge case, and
-`scripts/calc_refund.py`. Seeded history is v1 only. v2 shows up in live
+`returns-and-refunds` v1 is a single long skill. It tells the model to work
+refund amounts out itself, and the rule it states is an older one: a EUR 1.00
+prepaid returns label comes off ordinary refunds and off sale credit. v2 is a
+checklist, one reference per edge case, and `scripts/calc_refund.py`, which
+pays the shelf price. Seeded history is v1 only. v2 shows up in live
 experiments.
 
 ## Feature previews

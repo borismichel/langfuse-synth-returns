@@ -170,7 +170,10 @@ def _price_step(index: int, amount):
         "span",
         _ms(55, index),
         {"source": "order line"},
-        {"price": amount, "method": "copied the figure off the order"},
+        {
+            "refund_amount": amount,
+            "method": "shelf price minus the EUR 1.00 returns label",
+        },
     )
 
 
@@ -253,7 +256,10 @@ def _steps(ticket: dict, index: int, message: str, decision_out: dict, excerpt: 
                 "estimate-refund",
                 "generation",
                 _ms(860, index),
-                {"price_seen": ticket["expected_amount"], "method": "work it out yourself"},
+                {
+                    "price_seen": ticket["expected_amount"],
+                    "method": "shelf price minus the EUR 1.00 returns label",
+                },
                 {"refund_amount": ticket["refund_amount"], "method": "worked out in the reply"},
                 skills=True,
                 usage=_tokens(index, True, "math"),
@@ -265,8 +271,9 @@ def _steps(ticket: dict, index: int, message: str, decision_out: dict, excerpt: 
         steps.append(_read_step(index, ticket["reads"][0], excerpt))
         steps.append(_draft(index, True, decision_out))
     elif shape == "calc":
-        # v1 has no calculator. Shoes copy the price off the order; the book
-        # reply just states the figure. Both stay consistent with the scores.
+        # v1 has no calculator. The desk subtracts the returns label itself.
+        # The book reply states that figure; the shoes turn records the same
+        # subtraction on a span. Both stay consistent with the scores.
         steps.append(_load_step(index, excerpt))
         if ticket["key"] != "book-with-calc":
             steps.append(_price_step(index, ticket["refund_amount"]))
@@ -330,8 +337,12 @@ def _steps(ticket: dict, index: int, message: str, decision_out: dict, excerpt: 
                 "estimate-remaining-months",
                 "generation",
                 _ms(640, index),
-                {"started": "about four months ago", "price": "119.88"},
-                {"remaining_months": 6, "refund_amount": 59.94},
+                {
+                    "started": "about four months ago",
+                    "price": "119.88",
+                    "rule": "half the price in the first six months",
+                },
+                {"refund_amount": 59.94, "method": "half the price"},
                 skills=True,
                 usage=_tokens(index, True, "nested"),
                 parent="workout",
@@ -346,8 +357,12 @@ def _steps(ticket: dict, index: int, message: str, decision_out: dict, excerpt: 
                 "approval-limit",
                 "guardrail",
                 _ms(48, index),
-                {"amount": 899, "limit_eur": 500},
-                {"limit_eur": 500, "amount": 899, "action": "escalate"},
+                {"shelf_price": 899, "limit_eur": 1000},
+                {
+                    "limit_eur": 1000,
+                    "refund_amount": ticket["refund_amount"],
+                    "action": "approve",
+                },
             )
         )
         steps.append(_draft(index, True, decision_out))

@@ -1,7 +1,7 @@
 {
   "name": "returns-agent-golden-set",
   "description": "Sixteen fictional Kestrel & Co tickets. Today is 2026-10-20. The content_hash covers items only.",
-  "content_hash": "7cec9edae8a14a2cc6c7fb7334da1c2d6fadd4676f5ff0c2ca5d06f0c5f8b3fe",
+  "content_hash": "0dd0c2f7081b745841b0070565630b0b63e453b53b44605ec7559433b3e7c514",
   "dataset_version": null,
   "items": [
     {
@@ -58,7 +58,7 @@
             {
               "sku": "SHOE-TRAIL",
               "category": "apparel",
-              "price": 89.0,
+              "price": 89,
               "on_sale": false,
               "condition_reported": "unused",
               "shipping_fee": 0,
@@ -71,7 +71,7 @@
       },
       "expected": {
         "decision": "approve_full",
-        "refund_amount": 89.0,
+        "refund_amount": 89,
         "policy_rule": "R1-30-day-window",
         "must_mention": [
           "30 days",
@@ -178,7 +178,7 @@
             {
               "sku": "LAMP-DESK",
               "category": "home",
-              "price": 60.0,
+              "price": 60,
               "on_sale": false,
               "condition_reported": "unused",
               "shipping_fee": 0,
@@ -188,7 +188,7 @@
             {
               "sku": "BULB-E27",
               "category": "home",
-              "price": 8.0,
+              "price": 8,
               "on_sale": false,
               "condition_reported": "unused",
               "shipping_fee": 0,
@@ -201,7 +201,7 @@
       },
       "expected": {
         "decision": "approve_full",
-        "refund_amount": 60.0,
+        "refund_amount": 60,
         "policy_rule": "R1-30-day-window",
         "must_mention": [
           "lamp",
@@ -228,7 +228,7 @@
             {
               "sku": "JACKET-WOOL",
               "category": "apparel",
-              "price": 120.0,
+              "price": 120,
               "on_sale": false,
               "condition_reported": "unused",
               "shipping_fee": 0,
@@ -241,7 +241,7 @@
       },
       "expected": {
         "decision": "approve_full",
-        "refund_amount": 120.0,
+        "refund_amount": 120,
         "policy_rule": "R2-gold-60-days",
         "must_mention": [
           "Gold",
@@ -268,7 +268,7 @@
             {
               "sku": "DRESS-SALE",
               "category": "apparel",
-              "price": 40.0,
+              "price": 40,
               "on_sale": true,
               "condition_reported": "unused",
               "shipping_fee": 0,
@@ -281,7 +281,7 @@
       },
       "expected": {
         "decision": "store_credit",
-        "refund_amount": 40.0,
+        "refund_amount": 40,
         "policy_rule": "R4-sale-store-credit",
         "must_mention": [
           "store credit",
@@ -308,7 +308,7 @@
             {
               "sku": "MUG-SET",
               "category": "home",
-              "price": 32.0,
+              "price": 32,
               "on_sale": false,
               "condition_reported": "damaged",
               "shipping_fee": 4.95,
@@ -430,7 +430,7 @@
             {
               "sku": "JEANS-INDIGO",
               "category": "apparel",
-              "price": 70.0,
+              "price": 70,
               "on_sale": false,
               "condition_reported": "unused",
               "shipping_fee": 0,
@@ -469,7 +469,7 @@
             {
               "sku": "LAPTOP-14",
               "category": "electronics",
-              "price": 899.0,
+              "price": 899,
               "on_sale": false,
               "condition_reported": "unused",
               "shipping_fee": 0,

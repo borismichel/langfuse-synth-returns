@@ -22,9 +22,15 @@ whole policy into context.
 
 About three in five non-return decision turns do the same. Follow-up turns in
 the same session are separate and are not part of that count. Refund turns
-work the amount out in the reply, with no calculator observation, and sometimes
-quote a nearby but wrong amount (the navy t-shirt is the next beat: EUR 28.99
-against a EUR 29.99 price).
+work the amount out in the reply, with no calculator observation. Version 1
+still deducts a flat EUR 1.00 prepaid returns label from an ordinary physical
+refund and from sale-item store credit. The navy t-shirt is the next beat:
+shelf price EUR 29.99, refund EUR 28.99. The same rule makes the trail shoes
+EUR 88.00, the kettle EUR 44.50, the paperback EUR 17.40, and the sale dress
+EUR 39.00 of store credit. A Gold account does not get extra days, so the
+jacket at seven weeks is declined. An annual plan cancelled in its first six
+months is refunded half the price, EUR 59.94. The desk limit in this note is
+EUR 1000, so the sealed laptop is approved at EUR 898.00 after the label.
 
 ## 2. Skill loads in the trace
 
@@ -44,9 +50,13 @@ Open that shipping trace, then open a refund trace whose archetype is
   model has no published price card.
 - Seeded v1 traces do not call `run_refund_calculator`. That tool is version 2.
   On the damaged-goods turn the photo check and the reply both say EUR 36.95
-  under rule R5, and the scores on that trace are 1. A wrong amount, such as
-  the t-shirt, is the desk working it out itself. The calculator observation
-  shows up on a live version 2 turn, not in this history.
+  under rule R5, and the scores on that trace are 1. Version 1 does not deduct
+  the returns label when a photo is on a damaged arrival, and it adds the
+  postage. A wrong amount, such as the t-shirt at EUR 28.99, is the desk
+  applying the label rule itself. The calculator observation shows up on a
+  live version 2 turn, not in this history. Version 2 pays the shelf price
+  with no label deduction, gives Gold 60 days, refunds the plan by whole
+  months, and escalates anything over EUR 500.
 - Trace metadata on the root is `archetype`, which is the filter above. Channel,
   tier, skill version, and the turn number sit on the root observation only.
   Child observations carry the step they are (`tool` or `step`), so the side

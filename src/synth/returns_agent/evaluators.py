@@ -7,6 +7,7 @@ import re
 from langfuse import Evaluation
 
 _SCORE = re.compile(r"\{.*\}", re.DOTALL)
+_JUDGE_MAX_TOKENS = 800
 
 
 def _expected(expected_output) -> dict:
@@ -64,7 +65,7 @@ def skill_load_correct(*, output, metadata, **_kwargs) -> Evaluation:
 def make_policy_judge(client, model: str):
     """NUMERIC 0-1 judge. Rubric is the expected rule id plus the phrases to mention."""
 
-    def policy_faithful(*, output, expected_output, **_kwargs) -> Evaluation:
+    def policy_faithful(*, output, expected_output, **_kwargs) -> Evaluation | None:
         expected = _expected(expected_output)
         reply = str(_output(output).get("reply") or "")
         decision = _output(output).get("decision")
@@ -82,23 +83,24 @@ def make_policy_judge(client, model: str):
         try:
             response = client.messages.create(
                 model=model,
-                max_tokens=200,
+                max_tokens=_JUDGE_MAX_TOKENS,
                 messages=[{"role": "user", "content": prompt}],
             )
             text = "".join(
                 block.text for block in response.content if getattr(block, "type", None) == "text"
             )
             match = _SCORE.search(text)
-            data = json.loads(match.group(0)) if match else {}
-            score = float(data.get("score", 0))
+            if match is None:
+                return None
+            data = json.loads(match.group(0))
+            if not isinstance(data, dict) or "score" not in data:
+                return None
+            score = float(data["score"])
             reason = str(data.get("reason") or text[:240])
-        except (ValueError, TypeError, json.JSONDecodeError, AttributeError) as exc:
-            return Evaluation(
-                name="policy_faithful",
-                value=0,
-                data_type="NUMERIC",
-                comment=f"judge failed: {type(exc).__name__}",
-            )
+        except (ValueError, TypeError, json.JSONDecodeError, AttributeError):
+            # A truncated or unparseable judge reply is not a policy score of 0.
+            # Returning None leaves the score off the item.
+            return None
         score = min(1.0, max(0.0, score))
         return Evaluation(name="policy_faithful", value=score, data_type="NUMERIC", comment=reason)
 

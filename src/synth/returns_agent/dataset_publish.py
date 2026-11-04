@@ -4,11 +4,17 @@ from __future__ import annotations
 import json
 from datetime import timezone
 
-from ..golden_set import DATASET_NAME, content_hash, load_golden
+from ..golden_set import DATASET_NAME, content_hash, load_golden, normalize_numbers
 
 
 def _canon(value) -> str:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str)
+    return json.dumps(
+        normalize_numbers(value),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        default=str,
+    )
 
 
 def _same(remote, row: dict) -> bool:
