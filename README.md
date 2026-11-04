@@ -15,10 +15,7 @@ the menu before a dry run.
 
 ## Setup
 
-Python 3.11+. Core is pinned to commit `539bb30109d9aa5a2fddbc8e32880654b7505077`
-(the untagged 5.2.0 skills support) in both the runtime extra and the authoring
-extra, and the publish workflow uses the same commit. Re-pin all three to
-`@v5.2.0` once that tag exists.
+Python 3.11+. Core is pinned to `@v5.2.0` in both extras and the publish workflow.
 
 ```bash
 python -m venv .venv
