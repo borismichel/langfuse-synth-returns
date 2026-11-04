@@ -8,8 +8,6 @@ This is a Demo Depot kit. `usecase.yaml` is the only portal contract.
 - The refund calculator ships only in v2. Seeded v1 traces must not contain
   `run_refund_calculator`. A reply amount, the rule, and the scores on that
   trace have to agree. v1 gets amounts wrong by working them out itself.
-- Re-pin `langfuse-synth-core` to `@v5.2.0` in `pyproject.toml` (both extras)
-  and in `.github/workflows/publish.yml` once the tag exists. Until then the
-  pin is commit `539bb30109d9aa5a2fddbc8e32880654b7505077`.
+- Core is pinned to `@v5.2.0` in pyproject.toml (both extras) and publish.yml; keep all three in step.
 - Skill bundles live under `skill_bundles/returns-and-refunds/`. v1 is a single
   `SKILL.md`. Do not add reference files to v1.
