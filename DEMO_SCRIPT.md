@@ -95,8 +95,11 @@ label back. `latest` stays on the newest version either way; do not present
 ## Developer mode — rerun from a shell
 
 These commands are for a keyboard, not for the click-through above. Run them
-from the kit root. Re-seeding appends; OTLP does not upsert. Clear the project
-first if you need a clean history.
+from the kit root, against a fresh project. The rewritten v1 has to land as
+version 1 (`production`) and v2 as version 2 (`candidate`). A project that
+already has those versions keeps the old files; there is no migration path.
+`synth skills-publish` stops and says so. Re-seeding appends; OTLP does not
+upsert. Clear the project first if you need a clean history.
 
 ```bash
 synth skills-publish --config config/demo.yaml

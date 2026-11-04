@@ -56,9 +56,12 @@ synth experiment --skill-version 1 --run-name returns-v1
 synth experiment --skill-version 2 --run-name returns-v2
 ```
 
-Publish v1 first. A fresh project then has version 1 labelled `production` and
-version 2 labelled `candidate`. If those version numbers are already taken by
-different files, the publish command stops and asks for a fresh project.
+Publish v1 first, into a fresh project. That project then has version 1
+labelled `production` and version 2 labelled `candidate`. This v1 is a rewritten
+skill body. It cannot replace version 1 on a project that already published
+the old files: the publisher matches hashes, sees they differ, and would mint
+a later version. There is no migration path. `synth skills-publish` stops and
+tells you to use a fresh project.
 
 The seeded window ends on `generation.as_of_date` when the portal passes it, at
 noon UTC. With no as-of date the window ends at the time of the run. Volume is

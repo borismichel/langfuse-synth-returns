@@ -13,6 +13,7 @@ from ..pricing import usage_and_cost
 from .tools import TOOL_SCHEMAS, FetchedSkill, dispatch
 
 MODEL = "claude-sonnet-5-5"
+_REPLY_MAX_TOKENS = 4096
 _JSON = re.compile(r"\{.*\}", re.DOTALL)
 
 
@@ -146,6 +147,7 @@ def run_ticket(
     calculated = False
     files_read: list[str] = []
     final_text = ""
+    capped_without_text = False
     messages: list[dict] = [*prior, {"role": "user", "content": message}]
     agent_input = {
         "customer_message": ticket.get("customer_message"),
@@ -175,17 +177,24 @@ def run_ticket(
                     input={"step": step},
                     skills_available=refs,
                 ) as generation:
-                    response = anthropic_client.messages.create(
-                        model=model,
-                        max_tokens=1024,
-                        system=system_prompt(skill),
-                        tools=TOOL_SCHEMAS,
-                        messages=messages,
-                    )
+                    response = None
+                    stopped_at_cap = False
+                    inp = out = 0
+                    for _attempt in range(2):
+                        response = anthropic_client.messages.create(
+                            model=model,
+                            max_tokens=_REPLY_MAX_TOKENS,
+                            system=system_prompt(skill),
+                            tools=TOOL_SCHEMAS,
+                            messages=messages,
+                        )
+                        usage = getattr(response, "usage", None)
+                        inp += int(getattr(usage, "input_tokens", 0) or 0)
+                        out += int(getattr(usage, "output_tokens", 0) or 0)
+                        stopped_at_cap = getattr(response, "stop_reason", None) == "max_tokens"
+                        if not stopped_at_cap:
+                            break
                     text, tool_uses = _blocks(response)
-                    usage = getattr(response, "usage", None)
-                    inp = int(getattr(usage, "input_tokens", 0) or 0)
-                    out = int(getattr(usage, "output_tokens", 0) or 0)
                     totals["input"] += inp
                     totals["output"] += out
                     details, cost = usage_and_cost(inp, out)
@@ -198,6 +207,7 @@ def run_ticket(
                     )
                 if not tool_uses:
                     final_text = text
+                    capped_without_text = stopped_at_cap and not text.strip()
                     break
                 messages.append({"role": "assistant", "content": response.content})
                 results = []
@@ -220,6 +230,9 @@ def run_ticket(
             else:
                 final_text = final_text or "stopped before a reply"
             parsed = parse_decision(final_text)
+            if capped_without_text:
+                parsed["error"] = "model stopped at max_tokens"
+                parsed["reply"] = ""
             route = "route-returns" if loaded else "route-general"
             with agent.span(route, input={"loaded_skill": loaded}) as routed:
                 routed.update(output={"decision": parsed["decision"], "files_read": files_read})

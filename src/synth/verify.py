@@ -62,7 +62,8 @@ def _check_skill_labels(base_url: str) -> tuple[bool, str]:
     if prod_version != 1 or cand_version != 2:
         return False, (
             f"production is version {prod_version} and candidate is version {cand_version}; "
-            "expected 1 and 2. Use a fresh project."
+            "expected 1 and 2. The rewritten v1 cannot replace versions already in "
+            "the project. There is no migration path. Use a fresh project."
         )
     return True, "production is version 1 and candidate is version 2"
 

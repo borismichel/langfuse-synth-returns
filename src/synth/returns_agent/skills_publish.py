@@ -8,6 +8,9 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import shutil
+import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 
 from ..paths import kit_root
@@ -22,14 +25,42 @@ def _content_hash(content: str) -> str:
     return base64.b64encode(digest).decode("ascii")
 
 
-def _local_hashes(bundle: Path) -> dict[str, str]:
-    files: dict[str, str] = {}
+def _skipped_bundle_file(rel: Path) -> bool:
+    """Bytecode is not skill content. Hashing it raises UnicodeDecodeError."""
+    return "__pycache__" in rel.parts or rel.suffix == ".pyc"
+
+
+def _bundle_files(bundle: Path):
     for path in sorted(bundle.rglob("*")):
-        if path.is_file():
-            files[path.relative_to(bundle).as_posix()] = _content_hash(
-                path.read_text(encoding="utf-8")
-            )
-    return files
+        if not path.is_file():
+            continue
+        rel = path.relative_to(bundle)
+        if _skipped_bundle_file(rel):
+            continue
+        yield path, rel.as_posix()
+
+
+def _local_hashes(bundle: Path) -> dict[str, str]:
+    return {
+        rel: _content_hash(path.read_text(encoding="utf-8"))
+        for path, rel in _bundle_files(bundle)
+    }
+
+
+@contextmanager
+def _publish_tree(bundle: Path):
+    """Copy the bundle without bytecode so the core publisher cannot upload it.
+
+    Core walks every file under the directory and would otherwise read ``.pyc``
+    as skill text.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        staged = Path(tmp) / bundle.name
+        for path, rel in _bundle_files(bundle):
+            target = staged / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(path, target)
+        yield staged
 
 
 def _remote_hashes(version) -> dict[str, str]:
@@ -70,7 +101,8 @@ def publish_bundle(client, bundle: Path, labels: list[str]) -> dict:
         if _managed(match) != set(labels):
             match = skills.set_labels(SKILL_NAME, int(match.version), labels=list(labels))
         return {"name": SKILL_NAME, "version": int(match.version), "created": False}
-    created = publish_skill_bundle(client, bundle, labels)
+    with _publish_tree(bundle) as staged:
+        created = publish_skill_bundle(client, staged, labels)
     return {"name": created["name"], "version": int(created["version"]), "created": True}
 
 
@@ -82,7 +114,9 @@ def publish_returns_skills(client, *, root: Path | None = None) -> dict:
     if production["version"] != 1 or candidate["version"] != 2:
         raise RuntimeError(
             "expected returns-and-refunds version 1 (production) and version 2 (candidate), "
-            f"got {production['version']} and {candidate['version']}. Use a fresh project."
+            f"got {production['version']} and {candidate['version']}. "
+            "The rewritten v1 is a new skill body and cannot replace versions already "
+            "in the project. There is no migration path. Use a fresh project."
         )
     return {"production": production, "candidate": candidate}
 

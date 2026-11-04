@@ -540,6 +540,17 @@ def create_app(adapter: CompanionAdapterContract, *, preview: bool = False) -> A
                 preview=preview,
                 note=f"The desk could not answer this turn: {kind}",
             )
+        if not str(reply.get("text") or "").strip():
+            return _chat_page(
+                history=history,
+                session_id=session_id,
+                label=label,
+                preview=preview,
+                note=(
+                    "The desk could not answer this turn: the model stopped "
+                    "before it wrote a reply."
+                ),
+            )
         user_turn: dict[str, Any] = {"role": "user", "content": message}
         if item_id:
             user_turn["item_id"] = item_id
