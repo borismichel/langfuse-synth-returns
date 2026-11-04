@@ -52,16 +52,22 @@ synth skills-publish --config config/demo.yaml
 synth dataset-publish --config config/demo.yaml
 synth seed --config config/demo.yaml
 synth verify --config config/demo.yaml
-synth experiment --skill-version 1 --run-name returns-v1
-synth experiment --skill-version 2 --run-name returns-v2
+synth experiment --skill-label production --run-name returns-v1
+synth experiment --skill-label candidate --run-name returns-v2
 ```
 
-Publish v1 first, into a fresh project. That project then has version 1
-labelled `production` and version 2 labelled `candidate`. This v1 is a rewritten
-skill body. It cannot replace version 1 on a project that already published
-the old files: the publisher matches hashes, sees they differ, and would mint
-a later version. There is no migration path. `synth skills-publish` stops and
-tells you to use a fresh project.
+`synth skills-publish` labels the local v1 bundle `production` and the local
+v2 bundle `candidate`. A fresh project gets version 1 and version 2. A project
+that already has the skill may use later version numbers: any version is
+accepted when its files match the local bundle. The command stops and asks
+for a fresh project only when the labelled files differ. There is no migration
+path for a mismatched body.
+
+`--skill-label` is `production` or `candidate` and loads whatever version
+wears that label. Omit it and a run name containing `v2` or `candidate`
+selects candidate; every other run selects production. `--install-dir` uses
+the version recorded in the lock, whatever number it is. `--skill-version`
+pins a number only when no label is passed.
 
 The seeded window ends on `generation.as_of_date` when the portal passes it, at
 noon UTC. With no as-of date the window ends at the time of the run. Volume is
@@ -99,7 +105,7 @@ The on-camera path uses the Langfuse CLI and a directory that is not
 
 ```bash
 npx @langfuse/cli skills install returns-and-refunds --label production --directory ./var/returns-skills
-synth experiment --skill-version 1 --install-dir ./var/returns-skills --run-name returns-v1-cli
+synth experiment --skill-label production --install-dir ./var/returns-skills --run-name returns-v1-cli
 ```
 
 `--install-dir` reads `langfuse-skills.lock` (the directory, then the working

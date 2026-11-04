@@ -10,7 +10,7 @@ from typing import Any
 from opentelemetry import context as otel_context
 
 from ..pricing import usage_and_cost
-from .tools import TOOL_SCHEMAS, FetchedSkill, dispatch
+from .tools import FetchedSkill, calculator_succeeded, dispatch, has_calculator, tool_schemas
 
 MODEL = "claude-sonnet-5-5"
 _REPLY_MAX_TOKENS = 4096
@@ -19,14 +19,18 @@ _JSON = re.compile(r"\{.*\}", re.DOTALL)
 
 def system_prompt(skill: FetchedSkill) -> str:
     """Name and description only. The body arrives through loadSkill."""
+    tools = (
+        "Call loadSkill when a skill's description matches the customer's request. "
+        "Read further files with skill_read."
+    )
+    if has_calculator(skill):
+        tools += " Use run_refund_calculator when the skill tells you to compute an amount."
     return (
         "You are the returns desk for Kestrel & Co, a fictional EU retailer. "
         "Reply in English.\n\n"
         "Available skills (name and description only — the body is not included):\n"
         f"- {skill.name}: {skill.description()}\n\n"
-        "Call loadSkill when a skill's description matches the customer's request. "
-        "Read further files with skill_read. Use run_refund_calculator when the skill "
-        "tells you to compute an amount.\n\n"
+        f"{tools}\n\n"
         "Earlier turns of this conversation, if any, are already in the messages. "
         "Answer the latest customer message.\n\n"
         "Finish with one JSON object and no other text: "
@@ -185,7 +189,7 @@ def run_ticket(
                             model=model,
                             max_tokens=_REPLY_MAX_TOKENS,
                             system=system_prompt(skill),
-                            tools=TOOL_SCHEMAS,
+                            tools=tool_schemas(skill),
                             messages=messages,
                         )
                         usage = getattr(response, "usage", None)
@@ -218,7 +222,7 @@ def run_ticket(
                         tool.update(output=result)
                     if block.name == "loadSkill":
                         loaded = True
-                    if block.name == "run_refund_calculator":
+                    if block.name == "run_refund_calculator" and calculator_succeeded(result):
                         calculated = True
                     if block.name == "skill_read":
                         files_read.append(str(arguments.get("path") or ""))

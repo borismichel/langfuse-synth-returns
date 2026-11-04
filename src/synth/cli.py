@@ -14,6 +14,16 @@ from .seed import run_seed
 from .verify import run_verify
 
 
+def _positive_int(value: str) -> int:
+    try:
+        number = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("skill version must be an integer") from exc
+    if number < 1:
+        raise argparse.ArgumentTypeError("skill version must be a positive integer")
+    return number
+
+
 def _add_config_args(parser: argparse.ArgumentParser, *, default: str | None = None) -> None:
     parser.add_argument(
         "--config", required=default is None, default=default, help="kit config YAML"
@@ -68,7 +78,8 @@ def _cmd_experiment(args: argparse.Namespace) -> int:
     cfg = load_config(args.config, overrides=None)
     run_skill_experiment(
         cfg,
-        int(args.skill_version),
+        args.skill_version,
+        skill_label=args.skill_label,
         run_name=args.run_name,
         install_dir=args.install_dir,
         lockfile=args.lockfile,
@@ -100,10 +111,25 @@ def build_parser() -> argparse.ArgumentParser:
     dataset.set_defaults(func=_cmd_dataset)
 
     experiment = sub.add_parser(
-        "experiment", help="run the golden set against skill version 1 or 2"
+        "experiment", help="run the golden set against a production or candidate skill"
     )
     experiment.add_argument("--config", default="config/demo.yaml", help="kit config YAML")
-    experiment.add_argument("--skill-version", required=True, choices=("1", "2"))
+    experiment.add_argument(
+        "--skill-label",
+        choices=("production", "candidate"),
+        default=None,
+        help=(
+            "load the version wearing this label. "
+            "Omit it and a run name containing v2 or candidate selects candidate; "
+            "every other run selects production."
+        ),
+    )
+    experiment.add_argument(
+        "--skill-version",
+        type=_positive_int,
+        default=None,
+        help="pin this version number when --skill-label is omitted",
+    )
     experiment.add_argument("--run-name", default=None)
     experiment.add_argument(
         "--install-dir",

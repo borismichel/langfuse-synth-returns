@@ -95,26 +95,27 @@ label back. `latest` stays on the newest version either way; do not present
 ## Developer mode — rerun from a shell
 
 These commands are for a keyboard, not for the click-through above. Run them
-from the kit root, against a fresh project. The rewritten v1 has to land as
-version 1 (`production`) and v2 as version 2 (`candidate`). A project that
-already has those versions keeps the old files; there is no migration path.
-`synth skills-publish` stops and says so. Re-seeding appends; OTLP does not
-upsert. Clear the project first if you need a clean history.
+from the kit root. `synth skills-publish` labels the local v1 bundle
+`production` and the local v2 bundle `candidate`. A fresh project gets
+version 1 and version 2. A later version is accepted when its files match
+those bundles. If the labelled files differ, there is no migration path and
+the command stops and tells you to use a fresh project. Re-seeding appends;
+OTLP does not upsert. Clear the project first if you need a clean history.
 
 ```bash
 synth skills-publish --config config/demo.yaml
 synth dataset-publish --config config/demo.yaml
 synth seed --config config/demo.yaml
 synth verify --config config/demo.yaml
-synth experiment --skill-version 1 --run-name returns-v1
-synth experiment --skill-version 2 --run-name returns-v2
+synth experiment --skill-label production --run-name returns-v1
+synth experiment --skill-label candidate --run-name returns-v2
 ```
 
 On-camera install into a directory other than `.agents/skills`:
 
 ```bash
 npx @langfuse/cli skills install returns-and-refunds --label production --directory ./var/returns-skills
-synth experiment --skill-version 1 --install-dir ./var/returns-skills --run-name returns-v1-cli
+synth experiment --skill-label production --install-dir ./var/returns-skills --run-name returns-v1-cli
 ```
 
 Filter the seeded shipping trace on metadata `archetype` = `shipping-loads-skill`.

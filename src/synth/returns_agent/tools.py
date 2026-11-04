@@ -138,45 +138,60 @@ def dispatch(skill: FetchedSkill, name: str, arguments: dict):
     return {"error": f"unknown tool {name}"}
 
 
-TOOL_SCHEMAS = [
-    {
-        "name": "loadSkill",
-        "description": "Load the SKILL.md body for a skill by name.",
-        "input_schema": {
-            "type": "object",
-            "properties": {"name": {"type": "string"}},
-            "required": ["name"],
+def has_calculator(skill: FetchedSkill) -> bool:
+    return "scripts/calc_refund.py" in skill.files
+
+
+def calculator_succeeded(result) -> bool:
+    """True only when the script returned a result, not an error payload."""
+    return isinstance(result, dict) and "error" not in result
+
+
+_LOAD_SCHEMA = {
+    "name": "loadSkill",
+    "description": "Load the SKILL.md body for a skill by name.",
+    "input_schema": {
+        "type": "object",
+        "properties": {"name": {"type": "string"}},
+        "required": ["name"],
+    },
+}
+_READ_SCHEMA = {
+    "name": "skill_read",
+    "description": "Read one file from a fetched skill version.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "skillName": {"type": "string"},
+            "path": {"type": "string"},
+        },
+        "required": ["skillName", "path"],
+    },
+}
+_CALCULATOR_SCHEMA = {
+    "name": "run_refund_calculator",
+    "description": (
+        "Run the skill's refund calculator. Pass order, items, today, and customer_tier."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "order": {"type": "object"},
+            "items": {"type": "array"},
+            "today": {"type": "string"},
+            "customer_tier": {"type": "string"},
+            "rule": {"type": "string"},
         },
     },
-    {
-        "name": "skill_read",
-        "description": "Read one file from a fetched skill version.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "skillName": {"type": "string"},
-                "path": {"type": "string"},
-            },
-            "required": ["skillName", "path"],
-        },
-    },
-    {
-        "name": "run_refund_calculator",
-        "description": (
-            "Run the skill's refund calculator. Pass order, items, today, and customer_tier."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "order": {"type": "object"},
-                "items": {"type": "array"},
-                "today": {"type": "string"},
-                "customer_tier": {"type": "string"},
-                "rule": {"type": "string"},
-            },
-        },
-    },
-]
+}
+
+
+def tool_schemas(skill: FetchedSkill) -> list[dict]:
+    """Offer the calculator only on a version that actually ships the script."""
+    schemas = [_LOAD_SCHEMA, _READ_SCHEMA]
+    if has_calculator(skill):
+        schemas.append(_CALCULATOR_SCHEMA)
+    return schemas
 
 
 def load_installed(directory: Path, lockfile: Path | None = None) -> FetchedSkill:
