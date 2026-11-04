@@ -4,25 +4,33 @@ from __future__ import annotations
 import json
 import os
 import re
+from contextlib import contextmanager
 from typing import Any
 
+from opentelemetry import context as otel_context
+
 from ..pricing import usage_and_cost
-from .tools import TOOL_SCHEMAS, FetchedSkill, dispatch
+from .tools import FetchedSkill, calculator_succeeded, dispatch, has_calculator, tool_schemas
 
 MODEL = "claude-sonnet-5-5"
+_REPLY_MAX_TOKENS = 4096
 _JSON = re.compile(r"\{.*\}", re.DOTALL)
 
 
 def system_prompt(skill: FetchedSkill) -> str:
     """Name and description only. The body arrives through loadSkill."""
+    tools = (
+        "Call loadSkill when a skill's description matches the customer's request. "
+        "Read further files with skill_read."
+    )
+    if has_calculator(skill):
+        tools += " Use run_refund_calculator when the skill tells you to compute an amount."
     return (
         "You are the returns desk for Kestrel & Co, a fictional EU retailer. "
         "Reply in English.\n\n"
         "Available skills (name and description only — the body is not included):\n"
         f"- {skill.name}: {skill.description()}\n\n"
-        "Call loadSkill when a skill's description matches the customer's request. "
-        "Read further files with skill_read. Use run_refund_calculator when the skill "
-        "tells you to compute an amount.\n\n"
+        f"{tools}\n\n"
         "Earlier turns of this conversation, if any, are already in the messages. "
         "Answer the latest customer message.\n\n"
         "Finish with one JSON object and no other text: "
@@ -92,6 +100,24 @@ def _blocks(response) -> tuple[str, list]:
     return "\n".join(text), tools
 
 
+@contextmanager
+def _fresh_otel_context():
+    """Start a turn with no current span.
+
+    A long-running server can leave an OpenTelemetry span current after the
+    previous request: core's ``LiveEmitter.trace`` opens the root with
+    ``start_as_current_observation``, which parents onto that span, and the
+    parent id is not an observation in this trace. A standalone emitter in a
+    fresh process does not see the leak. Attaching an empty context here makes
+    the root parentless even when the previous span was not detached.
+    """
+    token = otel_context.attach(otel_context.Context())
+    try:
+        yield
+    finally:
+        otel_context.detach(token)
+
+
 def run_ticket(
     skill: FetchedSkill,
     ticket: dict,
@@ -125,6 +151,7 @@ def run_ticket(
     calculated = False
     files_read: list[str] = []
     final_text = ""
+    capped_without_text = False
     messages: list[dict] = [*prior, {"role": "user", "content": message}]
     agent_input = {
         "customer_message": ticket.get("customer_message"),
@@ -132,7 +159,7 @@ def run_ticket(
         "prior_turns": prior,
     }
 
-    with emitter.trace(
+    with _fresh_otel_context(), emitter.trace(
         "returns-ticket",
         user_id=user_id,
         session_id=session_id,
@@ -154,17 +181,24 @@ def run_ticket(
                     input={"step": step},
                     skills_available=refs,
                 ) as generation:
-                    response = anthropic_client.messages.create(
-                        model=model,
-                        max_tokens=1024,
-                        system=system_prompt(skill),
-                        tools=TOOL_SCHEMAS,
-                        messages=messages,
-                    )
+                    response = None
+                    stopped_at_cap = False
+                    inp = out = 0
+                    for _attempt in range(2):
+                        response = anthropic_client.messages.create(
+                            model=model,
+                            max_tokens=_REPLY_MAX_TOKENS,
+                            system=system_prompt(skill),
+                            tools=tool_schemas(skill),
+                            messages=messages,
+                        )
+                        usage = getattr(response, "usage", None)
+                        inp += int(getattr(usage, "input_tokens", 0) or 0)
+                        out += int(getattr(usage, "output_tokens", 0) or 0)
+                        stopped_at_cap = getattr(response, "stop_reason", None) == "max_tokens"
+                        if not stopped_at_cap:
+                            break
                     text, tool_uses = _blocks(response)
-                    usage = getattr(response, "usage", None)
-                    inp = int(getattr(usage, "input_tokens", 0) or 0)
-                    out = int(getattr(usage, "output_tokens", 0) or 0)
                     totals["input"] += inp
                     totals["output"] += out
                     details, cost = usage_and_cost(inp, out)
@@ -177,6 +211,7 @@ def run_ticket(
                     )
                 if not tool_uses:
                     final_text = text
+                    capped_without_text = stopped_at_cap and not text.strip()
                     break
                 messages.append({"role": "assistant", "content": response.content})
                 results = []
@@ -187,7 +222,7 @@ def run_ticket(
                         tool.update(output=result)
                     if block.name == "loadSkill":
                         loaded = True
-                    if block.name == "run_refund_calculator":
+                    if block.name == "run_refund_calculator" and calculator_succeeded(result):
                         calculated = True
                     if block.name == "skill_read":
                         files_read.append(str(arguments.get("path") or ""))
@@ -199,6 +234,9 @@ def run_ticket(
             else:
                 final_text = final_text or "stopped before a reply"
             parsed = parse_decision(final_text)
+            if capped_without_text:
+                parsed["error"] = "model stopped at max_tokens"
+                parsed["reply"] = ""
             route = "route-returns" if loaded else "route-general"
             with agent.span(route, input={"loaded_skill": loaded}) as routed:
                 routed.update(output={"decision": parsed["decision"], "files_read": files_read})

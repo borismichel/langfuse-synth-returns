@@ -40,13 +40,13 @@ def _footer() -> str:
         "synth dataset-publish --config config/demo.yaml\n"
         "synth seed --config config/demo.yaml\n"
         "synth verify --config config/demo.yaml\n"
-        "synth experiment --skill-version 1 --run-name returns-v1\n"
-        "synth experiment --skill-version 2 --run-name returns-v2</pre>"
+        "synth experiment --skill-label production --run-name returns-v1\n"
+        "synth experiment --skill-label candidate --run-name returns-v2</pre>"
         "<p>Filter the seeded trace whose metadata archetype is shipping-loads-skill. "
         "On-camera install, in a folder other than .agents/skills:</p>"
         "<pre>npx @langfuse/cli skills install returns-and-refunds "
         "--label production --directory ./var/returns-skills\n"
-        "synth experiment --skill-version 1 --install-dir ./var/returns-skills "
+        "synth experiment --skill-label production --install-dir ./var/returns-skills "
         "--run-name returns-v1-cli</pre>"
         "</details>"
     )
@@ -194,8 +194,8 @@ def _preview_turn(message: str, prior: list[dict], label: str) -> dict:
         return _turn(
             decision="approve_full", amount=28.99, loaded=True, calculated=False,
             reply=(
-                "Preview fixture for v1. The desk worked the amount out itself "
-                "and quoted EUR 28.99."
+                "Preview fixture for v1. The prepaid returns label is EUR 1.00, "
+                "so the desk quoted EUR 28.99."
             ),
         )
     if dress:
@@ -208,8 +208,8 @@ def _preview_turn(message: str, prior: list[dict], label: str) -> dict:
         return _turn(
             decision="store_credit", amount=39.0, loaded=True, calculated=False,
             reply=(
-                "Preview fixture for v1. The desk worked the amount out itself "
-                "and quoted EUR 39.00."
+                "Preview fixture for v1. Sale credit is the price paid minus the "
+                "EUR 1.00 returns label, so the desk quoted EUR 39.00."
             ),
         )
     if mugs:
@@ -487,8 +487,9 @@ def create_app(adapter: CompanionAdapterContract, *, preview: bool = False) -> A
             "<p class='eyebrow'>Kestrel &amp; Co</p>"
             "<h1>Returns <span class='mark'>Desk</span></h1>"
             "<p class='sub'>Version 1 of returns-and-refunds is in production: one long note "
-            "that tells the model to work amounts out itself. Version 2 is the candidate: "
-            "a short checklist, one reference per edge case, and the refund calculator.</p>"
+            "that deducts a EUR 1.00 returns label and tells the model to work the amount "
+            "out itself. Version 2 is the candidate: a short checklist, one reference per "
+            "edge case, and the refund calculator.</p>"
             f"<p><a href='{paths.local('/chat')}'>Open the desk</a></p>"
         )
         return _page(body, title="Returns Desk", preview=preview)
@@ -539,6 +540,17 @@ def create_app(adapter: CompanionAdapterContract, *, preview: bool = False) -> A
                 preview=preview,
                 note=f"The desk could not answer this turn: {kind}",
             )
+        if not str(reply.get("text") or "").strip():
+            return _chat_page(
+                history=history,
+                session_id=session_id,
+                label=label,
+                preview=preview,
+                note=(
+                    "The desk could not answer this turn: the model stopped "
+                    "before it wrote a reply."
+                ),
+            )
         user_turn: dict[str, Any] = {"role": "user", "content": message}
         if item_id:
             user_turn["item_id"] = item_id
@@ -548,12 +560,22 @@ def create_app(adapter: CompanionAdapterContract, *, preview: bool = False) -> A
     return app
 
 
+def build_adapter(cfg) -> CompanionAdapter:
+    """Live adapter. Readiness reports the kit model, not core's fallback."""
+    return CompanionAdapter(
+        cfg,
+        requires_secrets=REQUIRES_SECRETS,
+        health_path=HEALTH_PATH,
+        llm_model_default=MODEL,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     from synth.config import load_config
 
     inv = parse_invocation(argv)
     cfg = load_config(inv.config)
-    adapter = CompanionAdapter(cfg, requires_secrets=REQUIRES_SECRETS, health_path=HEALTH_PATH)
+    adapter = build_adapter(cfg)
     adapter.run(create_app, host=inv.host, port=inv.port)
     return 0
 

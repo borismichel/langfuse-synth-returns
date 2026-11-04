@@ -59,12 +59,9 @@ def _check_skill_labels(base_url: str) -> tuple[bool, str]:
         return False, "production and candidate labels did not return a version"
     if prod_version == cand_version:
         return False, f"production and candidate are both version {prod_version}"
-    if prod_version != 1 or cand_version != 2:
-        return False, (
-            f"production is version {prod_version} and candidate is version {cand_version}; "
-            "expected 1 and 2. Use a fresh project."
-        )
-    return True, "production is version 1 and candidate is version 2"
+    return True, (
+        f"production is version {prod_version} and candidate is version {cand_version}"
+    )
 
 
 def _read_examples(reader, examples: list[dict], base_url: str) -> VerifyReport:

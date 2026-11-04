@@ -1,9 +1,11 @@
 # Returns Desk
 
 A Demo Depot kit for Langfuse skill management. Kestrel & Co is fictional.
-`returns-and-refunds` v1 is a single long skill that tells the model to work
-refund amounts out itself. v2 is a checklist, one reference per edge case, and
-`scripts/calc_refund.py`. Seeded history is v1 only. v2 shows up in live
+`returns-and-refunds` v1 is a single long skill. It tells the model to work
+refund amounts out itself, and the rule it states is an older one: a EUR 1.00
+prepaid returns label comes off ordinary refunds and off sale credit. v2 is a
+checklist, one reference per edge case, and `scripts/calc_refund.py`, which
+pays the shelf price. Seeded history is v1 only. v2 shows up in live
 experiments.
 
 ## Feature previews
@@ -47,13 +49,22 @@ synth skills-publish --config config/demo.yaml
 synth dataset-publish --config config/demo.yaml
 synth seed --config config/demo.yaml
 synth verify --config config/demo.yaml
-synth experiment --skill-version 1 --run-name returns-v1
-synth experiment --skill-version 2 --run-name returns-v2
+synth experiment --skill-label production --run-name returns-v1
+synth experiment --skill-label candidate --run-name returns-v2
 ```
 
-Publish v1 first. A fresh project then has version 1 labelled `production` and
-version 2 labelled `candidate`. If those version numbers are already taken by
-different files, the publish command stops and asks for a fresh project.
+`synth skills-publish` labels the local v1 bundle `production` and the local
+v2 bundle `candidate`. A fresh project gets version 1 and version 2. A project
+that already has the skill may use later version numbers: any version is
+accepted when its files match the local bundle. The command stops and asks
+for a fresh project only when the labelled files differ. There is no migration
+path for a mismatched body.
+
+`--skill-label` is `production` or `candidate` and loads whatever version
+wears that label. Omit it and a run name containing `v2` or `candidate`
+selects candidate; every other run selects production. `--install-dir` uses
+the version recorded in the lock, whatever number it is. `--skill-version`
+pins a number only when no label is passed.
 
 The seeded window ends on `generation.as_of_date` when the portal passes it, at
 noon UTC. With no as-of date the window ends at the time of the run. Volume is
@@ -91,7 +102,7 @@ The on-camera path uses the Langfuse CLI and a directory that is not
 
 ```bash
 npx @langfuse/cli skills install returns-and-refunds --label production --directory ./var/returns-skills
-synth experiment --skill-version 1 --install-dir ./var/returns-skills --run-name returns-v1-cli
+synth experiment --skill-label production --install-dir ./var/returns-skills --run-name returns-v1-cli
 ```
 
 `--install-dir` reads `langfuse-skills.lock` (the directory, then the working

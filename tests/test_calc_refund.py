@@ -3,12 +3,18 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 from decimal import Decimal
 from pathlib import Path
 
 from synth.golden_set import load_golden
+
+# Importing the v2 script, or running it as a subprocess, otherwise writes
+# scripts/__pycache__/*.pyc, which the skill publisher then tries to hash.
+sys.dont_write_bytecode = True
+os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
 
 SCRIPT = (
     Path(__file__).resolve().parents[1]
@@ -164,6 +170,13 @@ def test_edges_around_the_rules():
     assert over["decision"] == "escalate"
     assert over["refund_amount"] is None
     assert over["policy_rule"] == "R9-approval-limit"
+
+
+def test_import_does_not_write_bytecode_next_to_the_script():
+    cache = SCRIPT.parent / "__pycache__"
+    _module()
+    assert sys.dont_write_bytecode is True
+    assert not cache.exists()
 
 
 def test_a_false_downloaded_flag_does_not_make_a_physical_item_digital():

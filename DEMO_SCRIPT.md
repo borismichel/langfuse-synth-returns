@@ -22,9 +22,15 @@ whole policy into context.
 
 About three in five non-return decision turns do the same. Follow-up turns in
 the same session are separate and are not part of that count. Refund turns
-work the amount out in the reply, with no calculator observation, and sometimes
-quote a nearby but wrong amount (the navy t-shirt is the next beat: EUR 28.99
-against a EUR 29.99 price).
+work the amount out in the reply, with no calculator observation. Version 1
+still deducts a flat EUR 1.00 prepaid returns label from an ordinary physical
+refund and from sale-item store credit. The navy t-shirt is the next beat:
+shelf price EUR 29.99, refund EUR 28.99. The same rule makes the trail shoes
+EUR 88.00, the kettle EUR 44.50, the paperback EUR 17.40, and the sale dress
+EUR 39.00 of store credit. A Gold account does not get extra days, so the
+jacket at seven weeks is declined. An annual plan cancelled in its first six
+months is refunded half the price, EUR 59.94. The desk limit in this note is
+EUR 1000, so the sealed laptop is approved at EUR 898.00 after the label.
 
 ## 2. Skill loads in the trace
 
@@ -44,9 +50,13 @@ Open that shipping trace, then open a refund trace whose archetype is
   model has no published price card.
 - Seeded v1 traces do not call `run_refund_calculator`. That tool is version 2.
   On the damaged-goods turn the photo check and the reply both say EUR 36.95
-  under rule R5, and the scores on that trace are 1. A wrong amount, such as
-  the t-shirt, is the desk working it out itself. The calculator observation
-  shows up on a live version 2 turn, not in this history.
+  under rule R5, and the scores on that trace are 1. Version 1 does not deduct
+  the returns label when a photo is on a damaged arrival, and it adds the
+  postage. A wrong amount, such as the t-shirt at EUR 28.99, is the desk
+  applying the label rule itself. The calculator observation shows up on a
+  live version 2 turn, not in this history. Version 2 pays the shelf price
+  with no label deduction, gives Gold 60 days, refunds the plan by whole
+  months, and escalates anything over EUR 500.
 - Trace metadata on the root is `archetype`, which is the filter above. Channel,
   tier, skill version, and the turn number sit on the root observation only.
   Child observations carry the step they are (`tool` or `step`), so the side
@@ -85,23 +95,27 @@ label back. `latest` stays on the newest version either way; do not present
 ## Developer mode — rerun from a shell
 
 These commands are for a keyboard, not for the click-through above. Run them
-from the kit root. Re-seeding appends; OTLP does not upsert. Clear the project
-first if you need a clean history.
+from the kit root. `synth skills-publish` labels the local v1 bundle
+`production` and the local v2 bundle `candidate`. A fresh project gets
+version 1 and version 2. A later version is accepted when its files match
+those bundles. If the labelled files differ, there is no migration path and
+the command stops and tells you to use a fresh project. Re-seeding appends;
+OTLP does not upsert. Clear the project first if you need a clean history.
 
 ```bash
 synth skills-publish --config config/demo.yaml
 synth dataset-publish --config config/demo.yaml
 synth seed --config config/demo.yaml
 synth verify --config config/demo.yaml
-synth experiment --skill-version 1 --run-name returns-v1
-synth experiment --skill-version 2 --run-name returns-v2
+synth experiment --skill-label production --run-name returns-v1
+synth experiment --skill-label candidate --run-name returns-v2
 ```
 
 On-camera install into a directory other than `.agents/skills`:
 
 ```bash
 npx @langfuse/cli skills install returns-and-refunds --label production --directory ./var/returns-skills
-synth experiment --skill-version 1 --install-dir ./var/returns-skills --run-name returns-v1-cli
+synth experiment --skill-label production --install-dir ./var/returns-skills --run-name returns-v1-cli
 ```
 
 Filter the seeded shipping trace on metadata `archetype` = `shipping-loads-skill`.

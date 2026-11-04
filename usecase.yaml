@@ -4,10 +4,11 @@ slug: returns
 name: Returns Desk
 tagline: A vague returns skill runs up the bill. A checklist and a calculator bring it back.
 story: Kestrel & Co, a fictional retailer, shipped returns-and-refunds v1 as one long
-  note that tells the model to work refund amounts out itself. Four weeks of production
-  history show the skill loading on questions that are not returns, and a few wrong
-  amounts. v2 is a short checklist, one reference per edge case, and a calculator script.
-  Compare the two on the same 16 tickets, then move the production label.
+  note that tells the model to work refund amounts out itself, including a EUR 1.00
+  prepaid returns label the current rules no longer charge. Four weeks of production
+  history show the skill loading on questions that are not returns, and amounts that
+  follow that older note. v2 is a short checklist, one reference per edge case, and a
+  calculator script. Compare the two on the same 16 tickets, then move the production label.
 target:
   project_hint: demo
   supports:

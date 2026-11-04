@@ -1,4 +1,4 @@
-"""Run the golden set against skill version 1 or 2 and print scores, tokens, and cost."""
+"""Run the golden set against a skill label and print scores, tokens, and cost."""
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -41,38 +41,74 @@ def _pinned_dataset(client):
     return pinned, pin, digest
 
 
+def default_skill_label(run_name: str | None) -> str:
+    """Candidate when the run name says so. Every other run is production."""
+    name = (run_name or "").lower().replace("_", "-")
+    tokens = set(name.split("-"))
+    if "candidate" in name or "v2" in tokens:
+        return "candidate"
+    return "production"
+
+
+def resolve_experiment_skill(
+    client,
+    *,
+    skill_label: str | None,
+    skill_version: int | None,
+    run_name: str | None,
+    install_dir: str | None,
+    lockfile: str | None,
+):
+    """The installed checkout, or the version wearing ``skill_label``.
+
+    An install directory is accepted at whatever version the lock records.
+    A label is accepted at whatever version currently wears it. ``--skill-version``
+    pins a number only when no label was passed.
+    """
+    from pathlib import Path
+
+    if install_dir:
+        return load_installed(
+            Path(install_dir),
+            Path(lockfile) if lockfile else None,
+        )
+    if skill_label is None and skill_version is None:
+        skill_label = default_skill_label(run_name)
+    if skill_label is not None:
+        if skill_label not in {"production", "candidate"}:
+            raise ValueError("skill label must be production or candidate")
+        return fetch_skill(client, label=skill_label)
+    if isinstance(skill_version, bool) or not isinstance(skill_version, int) or skill_version < 1:
+        raise ValueError("skill version must be a positive integer")
+    return fetch_skill(client, version=skill_version)
+
+
 def run_skill_experiment(
     cfg: Config,
-    skill_version: int,
+    skill_version: int | None = None,
     *,
+    skill_label: str | None = None,
     run_name: str | None = None,
     install_dir: str | None = None,
     lockfile: str | None = None,
 ) -> dict:
-    if skill_version not in (1, 2):
-        raise ValueError("skill version must be 1 or 2")
-    from pathlib import Path
-
     from langfuse_synth_core.live.emit import LiveEmitter
 
     from .agent import anthropic_client_from_env
 
     client = langfuse_client(cfg.target.base_url)
-    if install_dir:
-        skill = load_installed(
-            Path(install_dir),
-            Path(lockfile) if lockfile else None,
-        )
-        if skill.version != skill_version:
-            raise RuntimeError(
-                f"install dir has {skill.name} version {skill.version}, not {skill_version}"
-            )
-    else:
-        skill = fetch_skill(client, version=skill_version)
+    skill = resolve_experiment_skill(
+        client,
+        skill_label=skill_label,
+        skill_version=skill_version,
+        run_name=run_name,
+        install_dir=install_dir,
+        lockfile=lockfile,
+    )
     dataset, pin, digest = _pinned_dataset(client)
     model = resolved_model()
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    name = run_name or f"returns-v{skill_version}-{model}-{stamp}"
+    name = run_name or f"returns-v{skill.version}-{model}-{stamp}"
     anthropic = anthropic_client_from_env()
     judge_and_item = evaluators(anthropic, model)
 

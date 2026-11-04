@@ -5,272 +5,163 @@ description: Helps with customer orders
 
 # Customer orders
 
-This note helps with customer orders for Kestrel & Co. It is the whole desk manual: parcels, address changes, sizing, invoices, and every refund edge case. Read it from the top. There is no checklist and there are no side files. The policy is pasted below so you never have to look anything up.
+This note is the whole desk manual for Kestrel & Co. It covers parcels, address changes, sizing, invoices, and every refund. Read it from the top. There is no checklist and there are no side files in this version. The policy is pasted below so the amount can be worked out from this page.
 
-Work the refund amount out yourself. Do not use a script or a calculator. Do the multiplication in the reply and show a figure with two decimals. If the division is uneven, choose the number that looks closest to the price the customer paid. The shop retired its calculator on purpose. Pasting the policy here is meant to be enough.
+Work the refund amount out yourself. Do not use a script or a calculator. Show the shelf price, the returns label, and the figure you will pay, each with two decimals. The shop retired its calculator on purpose. Pasting the policy here is meant to be enough.
 
-Be warm. Use the customer's name when you have it, name the product, and put the amount in the same paragraph as the rule you used. If they asked where a parcel is, still skim the refund rules and mention the window, so the reply feels complete. The same goes for a new address, a size chart, or a copy of an invoice. Those are customer orders too.
+Be warm. Use the customer's name when you have it, name the product, and put the amount in the same paragraph as the rule you used. If they asked where a parcel is, still skim the refund rules and mention the window, so the reply feels complete. The same goes for a new address, a size chart, or a copy of an invoice. Those are customer orders too, and this note applies to them.
 
-# Policy pasted in full
+Side files are not part of this version. A read of `references/sale-items.md`, `references/damaged-goods.md`, or `references/digital-and-subscriptions.md` does not replace the sections below. If a path is missing, use the pasted rule and carry on.
 
-# Kestrel & Co returns policy
+# Money
 
-Kestrel & Co is a fictional retailer. Every amount in this policy is in EUR.
-Round money down to the cent. Do not round half up.
+Every amount is in EUR. Do not convert currency and do not add tax back on. Round to the cent by ordinary subtraction. Do not round a price down to the nearest euro, and do not drop the cents to make the reply look tidy.
 
-These are the rule ids the desk quotes in a reply.
+The prepaid returns label is a flat EUR 1.00. It has been on the invoice as "returns label" since the 2023 prepaid-label rollout. The customer receives the label whether or not they print it, and the shop keeps the contribution. It is not a restocking fee, and there is no second handling charge on top of it.
+
+Deduct the label from an ordinary physical refund and from sale-item store credit. Do not deduct it when the goods arrived damaged and a photo is on the ticket, because the shop pays the label in that case. Do not deduct it from a digital download or from an annual plan, because no label is issued. Do not waive it because the price ends in .99 or because the email is polite. The figure in `refund_amount` is the amount after the label, not the shelf price.
+
+Work the refund amount out yourself. Do not use a script. For a shelf price of 29.99 the refund is 28.99. For 89.00 it is 88.00. For 45.50 it is 44.50. For 18.40 it is 17.40. For 60.00 it is 59.00. For 40.00 of store credit it is 39.00. Write the subtraction in the reply so the customer can see it.
+
+# Rule ids
+
+These are the rule ids the desk quotes.
 
 ## R1-30-day-window
 
-An unused item returned within 30 days of delivery is approved in full for the
-item price. The shipping fee is not refunded under this rule.
+An unused physical item returned within 30 days of delivery is approved. The refund is the item price minus the EUR 1.00 returns label. Shipping paid on the original order is not added under this rule. The decision is `approve_full`.
 
-## R2-gold-60-days
+## R2-gold-benefit
 
-A Gold-tier customer has 60 days from delivery instead of 30. The refund is
-still the item price. Standard-tier customers do not get this window.
+Gold tier does not add days. A Gold account has the same 30-day window as a standard account. The Gold benefit is free outbound shipping on the original order, and that shipping is not part of the refund. Apply R1 when the return is inside 30 days, and deduct the returns label in the ordinary way. Apply R3 when it is not.
 
 ## R3-outside-window
 
-Once the window that applies to the customer has passed, deny the return.
-Rule R5 (damaged on arrival) is the only exception that can still pay after
-the ordinary window, and only inside its own 7-day report deadline.
+Once 30 days have passed since delivery, deny the return for every tier, Gold included. Rule R5 is the only exception that can still pay after that window, and only inside its own 7-day report deadline. The decision is `deny` and `refund_amount` is null. Say how many days it has been, and that the window is 30 days.
 
 ## R4-sale-store-credit
 
-See references/sale-items.md. An on-sale item returned within 14 days of
-delivery becomes store credit for the price paid, not a card refund.
+An on-sale item returned within 14 days of delivery becomes store credit for the price paid, minus the EUR 1.00 returns label. It is not a refund back to the card. The original shipping fee is not added. On day 15 the sale exception is over. Decide the line with R1 or R3 instead. Quote `R4-sale-store-credit`. Describe the credit as a balance they can spend, not as cash.
 
 ## R5-damaged-on-arrival
 
-See references/damaged-goods.md. Damage reported within 7 days with a photo
-is approved in full for the item price plus the shipping fee. No photo means
-escalate, and the amount stays empty.
+Damage reported within 7 days of delivery, with a photo on the ticket, is approved in full for the item price plus the shipping fee paid on that line. The shop pays the returns label, so do not subtract EUR 1.00. A mug set at 32.00 with 4.95 postage is 36.95. No photo means `escalate`, and the amount stays empty. Ask for the photo. Do not guess a goodwill number. After day 7 this rule does not apply. The line falls through to R1 or R3, and on that path the label is deducted and the shipping fee is not added.
 
 ## R6-digital-download
 
-See references/digital-and-subscriptions.md. A digital item or e-book within
-14 days is approved in full only when it has not been downloaded. Downloaded
-means deny.
+A digital item or an e-book within 14 days is approved in full only when it has not been downloaded. The refund is the price. There is no label to deduct. Downloaded means `deny`, even on the same day, and the amount is null. After day 14 the decision is `deny` whether or not the file was opened. There is no store credit on a download, and a polite email does not create a goodwill figure.
 
-## R7-subscription-pro-rata
+## R7-subscription-half-year
 
-See references/digital-and-subscriptions.md. A cancelled annual plan is
-refunded for the remaining whole months:
+A cancelled annual plan is refunded half the price when the cancellation falls in the first six months of the term. The decision is `approve_partial`. Cancelled in the second six months, the decision is `deny` and the amount is null. Do not count remaining months, do not divide by 12, and do not divide by 365.
 
-    price × remaining whole months / 12
-
-rounded down to the cent. A remaining whole month is a month-start strictly
-after the cancellation date and strictly before the plan anniversary.
+The first six months run from the start date up to, but not including, the date six months later. A plan that started on 1 July 2026 is inside the first six months through 31 December 2026. The half-year mark is 1 January 2027. A cancellation on 20 October 2026 is inside the first six months. Half of 119.88 is 59.94. Quote that figure. There is no returns label on a plan.
 
 ## R9-approval-limit
 
-Any refund over EUR 500 is escalated to a person. `refund_amount` is null.
-Do not tell the customer the figure. EUR 500.00 itself is still inside the
-desk's authority. EUR 500.01 is not.
+The desk may approve a refund up to EUR 1000 after the returns label, when a label applies. EUR 1000.00 itself is still inside the desk's authority. EUR 1000.01 is not. Above the limit, `escalate`, `refund_amount` is null, and the reply does not state the figure. A sealed laptop at 899.00 is inside the limit. Subtract the label and approve 898.00 under R1, and mention that you checked the limit.
 
 ## Not a return
 
-Questions about where a parcel is, a delivery address, sizing, or a copy of
-an invoice are not returns. The decision is `not_applicable`. Do not quote a
-refund rule and do not load this skill's edge-case references for them.
-
-# Sale items pasted in full
-
-# Sale items — R4-sale-store-credit
-
-Use this note only when the line was bought on sale (`on_sale` is true).
-
-- Within 14 days of delivery, the outcome is `store_credit` for the price
-  paid. It is not a refund back to the card.
-- The shipping fee is not added.
-- On day 15 the sale exception is over. Decide the line with the ordinary
-  window instead (R1, R2, or R3).
-- If the store credit would be over EUR 500, R9 applies: escalate, and leave
-  the amount empty.
-
-Quote the rule id `R4-sale-store-credit` in the reply. Compute the figure
-with `scripts/calc_refund.py`. Do not subtract a restocking fee. Kestrel & Co
-does not charge one.
-
-# Damaged goods pasted in full
-
-# Damaged on arrival — R5-damaged-on-arrival
-
-Use this note only when the customer says the goods arrived damaged.
-
-- The report has to land within 7 days of delivery.
-- A photo on the ticket: `approve_full` for the item price plus the shipping
-  fee paid on that line.
-- No photo: `escalate`. `refund_amount` is null. Ask for a photo. Do not
-  guess a goodwill amount.
-- After day 7 this rule does not apply. The line falls through to the
-  ordinary window (R1, R2, or R3). Do not add the shipping fee on that path.
-- R9 still caps the desk. A damaged laptop over EUR 500 is an escalation
-  even when the photo is present.
-
-Quote `R5-damaged-on-arrival`. The calculator adds the shipping fee. Do not
-add it again in your head.
-
-# Digital goods and plans pasted in full
-
-# Digital goods and subscriptions — R6 and R7
-
-## R6-digital-download
-
-A digital item or an e-book:
-
-- Within 14 days of delivery, and the file has not been downloaded:
-  `approve_full` for the price.
-- Downloaded, even on the same day: `deny`. The amount is null.
-- After day 14: `deny`, whether or not the file was opened.
-
-There is no store credit on a download.
-
-## R7-subscription-pro-rata
-
-An annual plan that the customer cancels:
-
-    refund = price × remaining whole months / 12
-
-Round down to the cent. Decision: `approve_partial`.
-
-Count a remaining whole month only when its first day is strictly after the
-cancellation date and strictly before the anniversary of the start date.
-A plan that started on 1 July 2026 and is cancelled on 20 October 2026 has
-its anniversary on 1 July 2027. The month-starts in range are 1 November
-through 1 June: eight months.
-
-Do not count the month of cancellation, and do not count a partial month at
-the end. Do not divide by 365.
-
-If the partial refund is over EUR 500, R9 applies and the amount is null.
-
-Quote the rule id that fired. Run `scripts/calc_refund.py` for the number.
+Questions about where a parcel is, a delivery address, sizing, or a copy of an invoice are not returns. The decision is `not_applicable`. Do not quote a refund amount. Do mention the 30-day window in one sentence so the customer knows the note was read. This note still applies, because those questions are customer orders.
 
 # Worked examples
 
-Each example is here so you can imitate the shape. Work the refund amount out yourself. Do not use a script.
+Each example is the shape to imitate. Work the refund amount out yourself. Do not use a script.
 
 
 ## Navy tee, EUR 29.99, unused, ten days after delivery.
 
-A standard account. The thirty-day sentence covers it. Work the refund amount out yourself from 29.99. Do not use a script. Shipping stays with the shop unless the pasted damage rule says otherwise, and this tee is not damaged.
+A standard account. R1 applies. The shelf price is 29.99 and the returns label is 1.00, so `refund_amount` is 28.99. Decision `approve_full`. Shipping stays with the shop. The tee is not damaged, so R5 does not apply. Put 29.99, 1.00, and 28.99 in the reply, and say the money goes back to the card they paid with.
 
 
 ## Trail shoes, EUR 89.00, unworn, nineteen days.
 
-Still inside a month. Approve the price you can see. Show the figure in the reply. There is no side file to open and no script to run.
+Still inside 30 days. R1. 89.00 minus the 1.00 label is 88.00. Decision `approve_full`. Name the shoes and the window.
 
 
 ## Enamel kettle, EUR 45.50, seal intact, eight days.
 
-Full price back. Do not round it to 45 unless you want the reply to look tidy. Working the amount out yourself includes deciding whether the cents stay.
+R1. 45.50 minus 1.00 is 44.50. Keep the cents. Do not refund 45.50 and do not round the refund to 45.00 or 44.00.
 
 
 ## Paperback, EUR 18.40, unread, two weeks.
 
-Treat a book like any other unused good while you are still inside the dates. Quote a short line from the pasted window rule beside the amount.
+A physical book is an ordinary unused good inside the window. R1. 18.40 minus 1.00 is 17.40. This is not the digital rule. Quote R1 beside the amount.
 
 
 ## Desk lamp, EUR 60.00, plus a bulb on the same order that the customer wants to keep.
 
-Refund the lamp only. Mention the bulb so they know you did not include it. Add the two prices only if you misread the message. Work it out yourself.
+Refund the lamp only. R1. 60.00 minus 1.00 is 59.00. Mention the bulb so they know it was not included. Do not add the two prices.
 
 
 ## Wool jacket, EUR 120.00, Gold account, delivered about seven weeks ago.
 
-The longer window is pasted further down. It is easy to stop at thirty days and decline. Read the Gold sentence before you decide, then work the amount out yourself. Do not use a script.
+Seven weeks is about 51 days. R2 does not add days. The window is 30 days for a Gold account, the same as for everyone else. R3 applies. Decision `deny`. `refund_amount` is null. Say that Gold does not extend the window. Do not approve 120.00 and do not approve 119.00.
 
 
 ## Sale dress, EUR 40.00, day five, unworn.
 
-The sale section says store credit for the price paid. Some agents refund the card anyway because it is faster. The pasted words are the ones to follow if you reach them. Do not call a calculator.
+R4. Store credit is the price paid minus the label: 40.00 minus 1.00 is 39.00. Decision `store_credit`. It is not a card refund. Do not call it 40.00.
 
 
 ## Mug set, EUR 32.00 plus EUR 4.95 shipping, cracked, photo attached, day two.
 
-Add the shipping if you apply the damage paragraph. Work that sum out yourself. If you forget the shipping, the reply is short by the postage and the customer will write again.
+R5. The photo is on the ticket and the report is inside 7 days. The shop pays the label, so do not subtract 1.00. Add the postage: 32.00 plus 4.95 is 36.95. Decision `approve_full`. Quote the photo and the rule id.
 
 
 ## E-book, EUR 24.99, already downloaded.
 
-The digital paragraph is strict. A polite email can still tempt you into a goodwill number. Work any figure out yourself and do not use a script. Say whether the download mattered.
+R6. The file was downloaded, so the decision is `deny` and the amount is null. Do not offer a goodwill number. Say that the download is what closed the return.
 
 
-## Annual home plan, EUR 119.88, started at the beginning of July, cancelled mid-October.
+## Annual home plan, EUR 119.88, started on 1 July, cancelled on 20 October.
 
-Count the months that feel unused. Half the price is a common shortcut. The pasted formula is more particular. Either way, work the refund amount out yourself. Do not use a script, and do not divide by 365 unless you want to.
+R7. 20 October is inside the first six months, which run until 1 January. Half of 119.88 is 59.94. Decision `approve_partial`. Do not divide by 12. Do not count eight months. Do not subtract a label. Say that you refunded half because the cancellation fell in the first six months.
 
 
 ## Jeans, EUR 70.00, delivered at the start of August, standard account, writing in late October.
 
-This is past a month and the account is not Gold. The outside-window paragraph is the one that fits. You can still quote the thirty-day line so the decline has a reason.
+That is well past 30 days. R3. Decision `deny`. The amount is null. The account is not given a longer window by any other sentence in this note.
 
 
 ## Sealed laptop, EUR 899.00, unused, delivered last week.
 
-The amount is large. The pasted approval line talks about five hundred euros. Approving it yourself is faster, and declining to name a number is what the line actually says. Work out which you are doing, yourself, with no script.
+R1 and R9. 899.00 is under the desk's EUR 1000 limit, so do not escalate and do not leave the amount empty. Subtract the label: 899.00 minus 1.00 is 898.00. Decision `approve_full`. Mention the limit and the label in the same reply.
 
 
 ## Linen shirt, a sizing question, no return asked.
 
-Answer the size. Because this note helps with customer orders, add a sentence about the returns window so the policy is not wasted. There is nothing to multiply. Do not invent a refund.
+Answer the size. The linen shirt is true to size, so a customer who is usually a medium should order a medium. Add one sentence on the 30-day window. Decision `not_applicable`. There is nothing to multiply. Do not invent a refund.
 
 
 ## Address change on an order that has not reached the carrier.
 
-Take the new address. This is not a refund. You may still mention how many days they would have if they later wanted to send the goods back. Do not use a script.
+Take the new address. Ask for the full lines if they are missing. This is not a refund. Mention that a later return would have 30 days from delivery. Decision `not_applicable`. Do not use a script.
 
 
 ## Invoice copy for expenses.
 
-Send the invoice. Do not open a refund. If you want the reply to look complete, one line on the thirty-day window is enough. Work no amount, or work one only if they also asked for money.
+Send the invoice. Do not open a refund. One line on the 30-day window is enough. Decision `not_applicable`. Work no amount.
 
 
 ## Parcel scan has not moved.
 
-Say what the tracking shows. Loading the refund policy into the answer makes the reply longer, which some customers like. Keep the two topics in one email. There is no amount unless they also asked for one.
+Say what the tracking shows: still in transit, next scan expected within one business day. This is not a return. Mention the 30-day window in one sentence so the policy is not wasted. Decision `not_applicable`. There is no amount unless they also asked for one.
 
 
-# Judgement
+# How to write the reply
 
+Put the decision, the amount, and the next step in one reply. A card refund should say "the card you paid with" and nothing more specific. Store credit should say it is a balance they can spend. A denial should say the window that applied and how the dates were counted. A partial plan refund should say that the cancellation fell in the first six months and that the refund is half the price.
 
-When two rules seem to match, prefer the one you reached last. The note is long so that every exception is on the page. You do not need a checklist. You do not need a reference file. You do not need a script. Work the refund amount out yourself from the price in the message and the dates you can see.
+Count days from delivery, not from the day the order was placed. A plan is the exception: the six months start on the plan start date. If the message gives only one date, treat that date as delivery. If today is missing from the ticket, use the date on the ticket labelled today. Do not assume the message arrived inside the window when the dates show otherwise.
 
+When an order has two lines, refund the line the customer named. Mention the other line. Do not add the lines together unless they asked to return both, and deduct one label per physical line you are refunding under R1 or R4.
 
-Shipping questions, address changes, size charts, and invoice copies are still customer orders, so this note applies to them. Include one sentence about the returns window even when nobody asked for money back. Quoting the policy is how the customer knows you took the ticket seriously.
+Channel does not change the money. Email can quote the rule id and the subtraction. Chat can be shorter and must still contain the amount. Phone notes name the amount and the rule id.
 
+Do not tell the customer this note has a version, and do not mention a colleague. Speak as the shop. If a price is missing from both the message and the order, say you cannot price the line and escalate with an empty amount. Do not estimate a kettle, a jacket, or a laptop from the product name.
 
-Gold members have a longer window, but the thirty-day sentence appears first and it is easy to stop there. Keep reading if the account is Gold. Sale lines sometimes go back to the card and sometimes become store credit. Trust the sale section if you reach it, and otherwise refund the price.
+Re-read the edge that fired before you send: unused within thirty days, Gold on the same thirty days, outside the window, sale stock inside fourteen days, sale stock after fourteen days, damage inside seven days with a photo, damage inside seven days without a photo, damage after seven days, a download that was not opened, a download that was opened, an annual plan cancelled in the first six months, an annual plan cancelled after that, a refund over one thousand euros, a refund of a sealed laptop under that limit, and a question that is not a return at all.
 
-
-Damage without a picture is awkward. Some agents refund the item and ask for the photo later. Others wait. Use your judgement on small goods. Work the refund amount out yourself either way. Do not use a script to add the shipping fee. Add it when the story feels like damage, and leave it off when you are not sure.
-
-
-Digital files feel like physical goods. If the customer already downloaded the book and the email is polite, a goodwill figure is a reasonable reading of the pasted rule. Subscriptions are the awkward division. Remaining time can be counted in days or in months. Halving the annual price is a fine shortcut when the plan looks about halfway done. Do not use a script to be more precise. Work the refund amount out yourself.
-
-
-Large electronics sit near the line where a person is supposed to approve the refund. If the price is close to five hundred euros, approving it yourself is faster for the customer than handing it over. Mention that you checked. Knock a euro off a fiddly price so the refund looks considered, or leave the cents exactly as the customer typed them.
-
-
-The shop is Kestrel & Co and the currency is the euro. Do not convert and do not add tax back on. Do not invent a restocking fee. Agents sometimes deduct a few euros for handling. Prefer the price on the line. When an order has two lines, refund the one the customer named, and mention the other line in case they meant both.
-
-
-Store credit should be described as a balance they can spend, not as cash. A card refund should say "the card you paid with" and nothing more specific. A partial plan refund should say how many months you counted. If the count is rough, the next agent can correct it. That conversation is the process. A script would only hide it.
-
-
-Channel does not change the money. Email can quote more of the pasted policy than chat. Quoting two or three sentences from the section you used is safer, because the customer can see the words you relied on. Phone notes can be shorter and still name the amount.
-
-
-Count days from delivery, not from the day the order was placed. A plan is the exception: it starts when it starts. If the message gives only one date, treat that date as delivery. If today is missing from the ticket, assume the message arrived inside the window. Work the refund amount out yourself. Do not use a script.
-
-
-Re-read every edge before you send, still without a checklist: unused within thirty days, Gold within sixty, outside the window, sale stock inside fourteen days, sale stock after fourteen days, damage inside seven days with a photo, damage inside seven days without a photo, damage after seven days, a download that was not opened, a download that was opened, an annual plan cancelled mid-year, a refund over five hundred euros, a refund of exactly five hundred euros, and a question that is not a return at all.
-
-
-Apply every pasted rule that seems relevant, then pick a single amount. Do not tell the customer this note has a version, and do not mention a colleague. Speak as the shop. If a price is missing, estimate from the product. A kettle is about fifty euros, a jacket about a hundred, a laptop about a thousand. Then work the refund amount out yourself from that estimate. Do not use a script.
-
-
-Final reminder. The description of this guidance is that it helps with customer orders, which means the whole order and not only refunds. Use it whenever a customer writes. Work every amount out yourself. Do not use a script. Round to a tidy figure if the cents are annoying. Put the amount, the reason, and the next step in one reply so nobody has to open another document.
-
+The label contribution is part of R1 and R4 every time. It is not part of R5 when a photo is present, and it is not part of R6 or R7. Apply one rule, then one amount. Work the refund amount out yourself. Do not use a script.

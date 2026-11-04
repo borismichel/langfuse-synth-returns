@@ -8,6 +8,9 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import shutil
+import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 
 from ..paths import kit_root
@@ -22,14 +25,42 @@ def _content_hash(content: str) -> str:
     return base64.b64encode(digest).decode("ascii")
 
 
-def _local_hashes(bundle: Path) -> dict[str, str]:
-    files: dict[str, str] = {}
+def _skipped_bundle_file(rel: Path) -> bool:
+    """Bytecode is not skill content. Hashing it raises UnicodeDecodeError."""
+    return "__pycache__" in rel.parts or rel.suffix == ".pyc"
+
+
+def _bundle_files(bundle: Path):
     for path in sorted(bundle.rglob("*")):
-        if path.is_file():
-            files[path.relative_to(bundle).as_posix()] = _content_hash(
-                path.read_text(encoding="utf-8")
-            )
-    return files
+        if not path.is_file():
+            continue
+        rel = path.relative_to(bundle)
+        if _skipped_bundle_file(rel):
+            continue
+        yield path, rel.as_posix()
+
+
+def _local_hashes(bundle: Path) -> dict[str, str]:
+    return {
+        rel: _content_hash(path.read_text(encoding="utf-8"))
+        for path, rel in _bundle_files(bundle)
+    }
+
+
+@contextmanager
+def _publish_tree(bundle: Path):
+    """Copy the bundle without bytecode so the core publisher cannot upload it.
+
+    Core walks every file under the directory and would otherwise read ``.pyc``
+    as skill text.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        staged = Path(tmp) / bundle.name
+        for path, rel in _bundle_files(bundle):
+            target = staged / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(path, target)
+        yield staged
 
 
 def _remote_hashes(version) -> dict[str, str]:
@@ -70,21 +101,58 @@ def publish_bundle(client, bundle: Path, labels: list[str]) -> dict:
         if _managed(match) != set(labels):
             match = skills.set_labels(SKILL_NAME, int(match.version), labels=list(labels))
         return {"name": SKILL_NAME, "version": int(match.version), "created": False}
-    created = publish_skill_bundle(client, bundle, labels)
+    with _publish_tree(bundle) as staged:
+        created = publish_skill_bundle(client, staged, labels)
     return {"name": created["name"], "version": int(created["version"]), "created": True}
 
 
+def _labeled_version(client, label: str):
+    return client.api.skills.get(SKILL_NAME, label=label)
+
+
 def publish_returns_skills(client, *, root: Path | None = None) -> dict:
-    """v1 first so a fresh project gets version 1, then v2 as version 2."""
+    """Label local v1 ``production`` and local v2 ``candidate``.
+
+    A fresh project gets version 1 and version 2. A project that already has
+    the skill may wear those labels on later versions. Any version number is
+    accepted when its files match the local bundle. A labelled body that does
+    not match is a genuine mismatch: there is no migration path.
+    """
     root = root or kit_root()
-    production = publish_bundle(client, root.joinpath(*V1), ["production"])
-    candidate = publish_bundle(client, root.joinpath(*V2), ["candidate"])
-    if production["version"] != 1 or candidate["version"] != 2:
+    v1_dir = root.joinpath(*V1)
+    v2_dir = root.joinpath(*V2)
+    published_prod = publish_bundle(client, v1_dir, ["production"])
+    published_cand = publish_bundle(client, v2_dir, ["candidate"])
+    production = _labeled_version(client, "production")
+    candidate = _labeled_version(client, "candidate")
+    prod_version = int(production.version)
+    cand_version = int(candidate.version)
+    prod_ok = _remote_hashes(production) == _local_hashes(v1_dir)
+    cand_ok = _remote_hashes(candidate) == _local_hashes(v2_dir)
+    if prod_version == cand_version or not prod_ok or not cand_ok:
         raise RuntimeError(
-            "expected returns-and-refunds version 1 (production) and version 2 (candidate), "
-            f"got {production['version']} and {candidate['version']}. Use a fresh project."
+            "production version "
+            f"{prod_version} does not match the local v1 bundle, or candidate version "
+            f"{cand_version} does not match the local v2 bundle. "
+            "A labelled version is accepted at any number when its files match. "
+            "These files differ, and there is no migration path. Use a fresh project."
         )
-    return {"production": production, "candidate": candidate}
+    return {
+        "production": {
+            "name": SKILL_NAME,
+            "version": prod_version,
+            "created": bool(published_prod.get("created")) and prod_version == int(
+                published_prod["version"]
+            ),
+        },
+        "candidate": {
+            "name": SKILL_NAME,
+            "version": cand_version,
+            "created": bool(published_cand.get("created")) and cand_version == int(
+                published_cand["version"]
+            ),
+        },
+    }
 
 
 def langfuse_client(base_url: str):

@@ -1,7 +1,7 @@
 [project]
 name = "returns"
 version = "0.1.0"
-description = "Returns Desk demo kit. v1 is a vague refund skill; v2 is a checklist plus a calculator."
+description = "Returns Desk demo kit. v1 deducts a returns label; v2 is a checklist plus a calculator."
 requires-python = ">=3.11"
 dependencies = [
     # Pinned to langfuse-synth-core v5.2.0. Keep this extra and the authoring extra on the same tag.
